@@ -3,7 +3,7 @@ import type { BridgeMessage, OutboundMessage } from "./types";
 export const ALLOWED_ORIGIN =
   typeof location !== "undefined" && location.hostname === "localhost"
     ? "http://localhost:3000"
-    : "https://your-sdk.com";
+    : "https://nanatri-js-sdk.georgemaevsky.workers.dev";
 
 export type MessageHandler = (message: BridgeMessage) => void;
 
