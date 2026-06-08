@@ -1,0 +1,39 @@
+{
+  "name": "nanatri-js-sdk",
+  "version": "0.1.0",
+  "description": "Embeddable payment button SDK",
+  "type": "module",
+  "main": "./dist/sdk.js",
+  "module": "./dist/sdk.esm.js",
+  "types": "./dist/sdk.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/sdk.esm.js",
+      "require": "./dist/sdk.js"
+    },
+    "./frames/button": "./frames/button/index.html",
+    "./frames/form": "./frames/form/index.html"
+  },
+  "files": [
+    "dist",
+    "frames"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@vitest/coverage-v8": "^1.6.0",
+    "jsdom": "^24.1.0",
+    "rollup": "^4.17.2",
+    "tslib": "^2.6.3",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

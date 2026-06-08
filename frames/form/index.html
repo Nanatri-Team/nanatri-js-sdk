@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!--
+    Strict CSP: scripts and resources may only load from our own origin.
+    Card data never passes through postMessage — it POSTs directly to our API.
+  -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self';" />
+  <title>Secure Payment</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="header">
+    <h2>Secure Checkout</h2>
+    <button id="close-btn" class="close-btn" type="button" aria-label="Close payment form">&#x2715;</button>
+  </div>
+
+  <div class="amount-display" id="amount-display">
+    <span class="label">Amount due</span>
+    <span class="value">—</span>
+  </div>
+
+  <div id="global-error" class="global-error" role="alert"></div>
+
+  <form id="payment-form" novalidate autocomplete="off">
+    <div class="form-group">
+      <label for="cardholder-name">Cardholder name</label>
+      <input
+        type="text"
+        id="cardholder-name"
+        name="cardholder-name"
+        placeholder="Jane Smith"
+        autocomplete="cc-name"
+        inputmode="text"
+        maxlength="64"
+        required
+      />
+      <div class="field-error" aria-live="polite"></div>
+    </div>
+
+    <div class="form-group">
+      <label for="card-number">Card number</label>
+      <input
+        type="text"
+        id="card-number"
+        name="card-number"
+        placeholder="1234 5678 9012 3456"
+        autocomplete="cc-number"
+        inputmode="numeric"
+        maxlength="19"
+        required
+      />
+      <div class="field-error" aria-live="polite"></div>
+    </div>
+
+    <div class="row">
+      <div class="form-group">
+        <label for="expiry">Expiry</label>
+        <input
+          type="text"
+          id="expiry"
+          name="expiry"
+          placeholder="MM/YY"
+          autocomplete="cc-exp"
+          inputmode="numeric"
+          maxlength="5"
+          required
+        />
+        <div class="field-error" aria-live="polite"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="cvv">CVV</label>
+        <input
+          type="text"
+          id="cvv"
+          name="cvv"
+          placeholder="123"
+          autocomplete="cc-csc"
+          inputmode="numeric"
+          maxlength="4"
+          required
+        />
+        <div class="field-error" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <button id="submit-btn" class="submit-btn" type="submit">
+      <span class="spinner" aria-hidden="true"></span>
+      <span id="submit-label">Pay now</span>
+    </button>
+  </form>
+
+  <p class="security-note" aria-label="Secured by 256-bit TLS encryption">
+    <svg width="11" height="13" viewBox="0 0 11 13" fill="none" aria-hidden="true">
+      <path d="M5.5 0L0 2v4c0 3.31 2.34 6.41 5.5 7C8.66 12.41 11 9.31 11 6V2L5.5 0z"
+            fill="#9ca3af"/>
+    </svg>
+    Secured with 256-bit TLS
+  </p>
+
+  <script src="app.js"></script>
+</body>
+</html>
