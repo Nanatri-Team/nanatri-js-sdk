@@ -1,12 +1,11 @@
 export interface PayButtonAttributes {
-  apiKey: string;
-  amount: string;
-  currency: string;
+  merchantId: string;
   label: string;
   color: string;
   textColor: string;
   width: string;
   height: string;
+  lang: string;
 }
 
 export interface BridgeMessage {
@@ -19,9 +18,6 @@ export interface BridgeMessage {
 
 export interface InitMessage extends BridgeMessage {
   type: "INIT";
-  apiKey: string;
-  amount: string;
-  currency: string;
   color: string;
   textColor: string;
   label: string;

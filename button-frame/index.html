@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline';" />
+  <title>Pay Button</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+    body {
+      display: flex;
+      align-items: stretch;
+    }
+    #pay-btn {
+      flex: 1;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      outline-offset: 3px;
+    }
+    #pay-btn:hover:not(:disabled) {
+      opacity: 0.88;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    #pay-btn:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+    #pay-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+      display: none;
+    }
+    #pay-btn:disabled .spinner {
+      display: block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <button id="pay-btn" type="button">
+    <span class="spinner" aria-hidden="true"></span>
+    <span id="label-text"></span>
+  </button>
+
+  <script>
+    (function () {
+      var SDK_ORIGIN = "https://your-sdk.com";
+      var params = new URLSearchParams(location.search);
+      var label = params.get("label") || "Pay now";
+      var color = params.get("color") || "#1a1a2e";
+      var textColor = params.get("textColor") || "#ffffff";
+
+      var btn = document.getElementById("pay-btn");
+      var labelEl = document.getElementById("label-text");
+
+      btn.style.backgroundColor = color;
+      btn.style.color = textColor;
+      btn.setAttribute("aria-label", label);
+      labelEl.textContent = label;
+
+      btn.addEventListener("click", function () {
+        parent.postMessage({ type: "BUTTON_CLICKED", version: "1" }, SDK_ORIGIN);
+      });
+
+      window.addEventListener("message", function (event) {
+        if (event.origin !== SDK_ORIGIN) return;
+        var msg = event.data;
+        if (!msg || typeof msg.version !== "string") return;
+
+        if (msg.type === "SET_LOADING") {
+          btn.disabled = Boolean(msg.loading);
+          labelEl.textContent = msg.loading ? "Processing…" : label;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

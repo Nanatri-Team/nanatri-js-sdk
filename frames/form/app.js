@@ -1,241 +1,214 @@
 (function () {
   "use strict";
 
-  var SDK_ORIGIN = "https://your-sdk.com";
-  var API_ENDPOINT = SDK_ORIGIN + "/api/v1/charge";
+  var SDK_ORIGIN    = location.hostname === "localhost" ? "http://localhost:3000" : "https://your-sdk.com";
+  var AUTH_ENDPOINT = SDK_ORIGIN + "/api/v1/auth/login";
+
+  var I18N = window.__i18n;
 
   // ── State ──────────────────────────────────────────────────────────────────
 
-  var state = {
-    apiKey: "",
-    amount: "",
-    currency: "USD",
-    color: "#1a1a2e",
-    textColor: "#ffffff",
-    initialized: false,
-  };
+  var lang = new URLSearchParams(location.search).get("lang") || "en";
+  var pwVisible = false;
 
   // ── DOM refs ───────────────────────────────────────────────────────────────
 
-  var form = document.getElementById("payment-form");
-  var amountDisplay = document.getElementById("amount-display");
-  var cardNumberInput = document.getElementById("card-number");
-  var expiryInput = document.getElementById("expiry");
-  var cvvInput = document.getElementById("cvv");
-  var nameInput = document.getElementById("cardholder-name");
-  var submitBtn = document.getElementById("submit-btn");
-  var submitLabel = document.getElementById("submit-label");
-  var globalError = document.getElementById("global-error");
+  var form         = document.getElementById("auth-form");
+  var emailInput   = document.getElementById("email");
+  var passwordInput= document.getElementById("password");
+  var submitBtn    = document.getElementById("submit-btn");
+  var togglePwBtn  = document.getElementById("toggle-pw");
+  var globalError  = document.getElementById("global-error");
+  var langBtns     = document.querySelectorAll(".lang-btn");
 
-  // ── Inbound messages ───────────────────────────────────────────────────────
+  // ── Apply translations ─────────────────────────────────────────────────────
 
-  window.addEventListener("message", function (event) {
-    if (event.origin !== SDK_ORIGIN) return;
-    var msg = event.data;
-    if (!msg || typeof msg.version !== "string") return;
+  function applyLang() {
+    var t = I18N[lang];
+    document.documentElement.lang = lang;
 
-    if (msg.type === "INIT") {
-      state.apiKey = msg.apiKey || "";
-      state.amount = msg.amount || "";
-      state.currency = msg.currency || "USD";
-      state.color = msg.color || "#1a1a2e";
-      state.textColor = msg.textColor || "#ffffff";
-      state.initialized = true;
-      applyTheme();
-      renderAmount();
+    document.getElementById("t-title").textContent       = t.title;
+    document.getElementById("t-subtitle").textContent    = t.subtitle;
+    document.getElementById("t-email-label").textContent = t.emailLabel;
+    document.getElementById("t-password-label").textContent = t.passwordLabel;
+    document.getElementById("t-submit").textContent      = t.submit;
+    document.getElementById("t-or").textContent          = t.or;
+    document.getElementById("t-google").textContent      = t.google;
+    document.getElementById("t-facebook").textContent    = t.facebook;
+
+    emailInput.placeholder    = t.emailPlaceholder;
+    passwordInput.placeholder = t.passwordPlaceholder;
+
+    togglePwBtn.setAttribute("aria-label", pwVisible ? t.hidePassword : t.showPassword);
+    togglePwBtn.textContent = pwVisible ? "🙈" : "👁";
+
+    langBtns.forEach(function (btn) {
+      btn.classList.toggle("active", btn.dataset.lang === lang);
+    });
+
+    // re-validate visible errors in new language
+    if (document.getElementById("group-email").classList.contains("has-error")) {
+      document.getElementById("err-email").textContent = getEmailError();
     }
+    if (document.getElementById("group-password").classList.contains("has-error")) {
+      document.getElementById("err-password").textContent = getPasswordError();
+    }
+  }
 
-    if (msg.type === "SET_LOADING") {
-      setLoading(Boolean(msg.loading));
+  // ── Language switcher ──────────────────────────────────────────────────────
+
+  langBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      lang = btn.dataset.lang;
+      applyLang();
+    });
+  });
+
+  // ── Password toggle ────────────────────────────────────────────────────────
+
+  togglePwBtn.addEventListener("click", function () {
+    pwVisible = !pwVisible;
+    passwordInput.type = pwVisible ? "text" : "password";
+    applyLang();
+  });
+
+  // ── Validation helpers ─────────────────────────────────────────────────────
+
+  function getEmailError() {
+    var t = I18N[lang].errors;
+    if (!emailInput.value.trim()) return t.emailRequired;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim())) return t.emailInvalid;
+    return "";
+  }
+
+  function getPasswordError() {
+    var t = I18N[lang].errors;
+    if (!passwordInput.value) return t.passwordRequired;
+    if (passwordInput.value.length < 6) return t.passwordShort;
+    return "";
+  }
+
+  function setFieldError(groupId, errId, message) {
+    var group = document.getElementById(groupId);
+    var errEl = document.getElementById(errId);
+    if (message) {
+      group.classList.add("has-error");
+      errEl.textContent = message;
+    } else {
+      group.classList.remove("has-error");
+      errEl.textContent = "";
+    }
+  }
+
+  function clearFieldError(groupId, errId) {
+    setFieldError(groupId, errId, "");
+  }
+
+  // Live validation on blur
+  emailInput.addEventListener("blur", function () {
+    setFieldError("group-email", "err-email", getEmailError());
+  });
+  emailInput.addEventListener("input", function () {
+    if (document.getElementById("group-email").classList.contains("has-error")) {
+      setFieldError("group-email", "err-email", getEmailError());
     }
   });
 
-  // ── Theme ──────────────────────────────────────────────────────────────────
-
-  function applyTheme() {
-    document.documentElement.style.setProperty("--accent", state.color);
-    document.documentElement.style.setProperty("--accent-text", state.textColor);
-    submitBtn.style.backgroundColor = state.color;
-    submitBtn.style.color = state.textColor;
-  }
-
-  function renderAmount() {
-    if (!state.amount) return;
-    var formatted = new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: state.currency,
-    }).format(parseFloat(state.amount));
-    amountDisplay.querySelector(".value").textContent = formatted;
-    submitLabel.textContent = "Pay " + formatted;
-  }
-
-  // ── Input formatting ───────────────────────────────────────────────────────
-
-  cardNumberInput.addEventListener("input", function () {
-    var digits = this.value.replace(/\D/g, "").slice(0, 16);
-    this.value = digits.replace(/(.{4})/g, "$1 ").trim();
-    clearFieldError(this);
+  passwordInput.addEventListener("blur", function () {
+    setFieldError("group-password", "err-password", getPasswordError());
   });
-
-  expiryInput.addEventListener("input", function () {
-    var digits = this.value.replace(/\D/g, "").slice(0, 4);
-    this.value = digits.length > 2 ? digits.slice(0, 2) + "/" + digits.slice(2) : digits;
-    clearFieldError(this);
+  passwordInput.addEventListener("input", function () {
+    if (document.getElementById("group-password").classList.contains("has-error")) {
+      setFieldError("group-password", "err-password", getPasswordError());
+    }
   });
-
-  cvvInput.addEventListener("input", function () {
-    this.value = this.value.replace(/\D/g, "").slice(0, 4);
-    clearFieldError(this);
-  });
-
-  nameInput.addEventListener("input", function () {
-    clearFieldError(this);
-  });
-
-  // ── Validation ─────────────────────────────────────────────────────────────
-
-  function validate() {
-    var valid = true;
-
-    var rawCard = cardNumberInput.value.replace(/\s/g, "");
-    if (!luhn(rawCard) || rawCard.length < 13) {
-      setFieldError(cardNumberInput, "Invalid card number.");
-      valid = false;
-    }
-
-    var expiryParts = expiryInput.value.split("/");
-    var expMonth = parseInt(expiryParts[0], 10);
-    var expYear = 2000 + parseInt(expiryParts[1] || "0", 10);
-    var now = new Date();
-    if (
-      isNaN(expMonth) || expMonth < 1 || expMonth > 12 ||
-      isNaN(expYear) ||
-      new Date(expYear, expMonth - 1) < new Date(now.getFullYear(), now.getMonth())
-    ) {
-      setFieldError(expiryInput, "Invalid or expired date.");
-      valid = false;
-    }
-
-    if (cvvInput.value.length < 3) {
-      setFieldError(cvvInput, "CVV must be 3–4 digits.");
-      valid = false;
-    }
-
-    if (nameInput.value.trim().length < 2) {
-      setFieldError(nameInput, "Enter the cardholder name.");
-      valid = false;
-    }
-
-    return valid;
-  }
-
-  function luhn(num) {
-    var sum = 0;
-    var alt = false;
-    for (var i = num.length - 1; i >= 0; i--) {
-      var n = parseInt(num[i], 10);
-      if (alt) { n *= 2; if (n > 9) n -= 9; }
-      sum += n;
-      alt = !alt;
-    }
-    return sum % 10 === 0 && sum > 0;
-  }
-
-  function setFieldError(input, message) {
-    var group = input.closest(".form-group");
-    if (!group) return;
-    group.classList.add("has-error");
-    var errEl = group.querySelector(".field-error");
-    if (errEl) errEl.textContent = message;
-  }
-
-  function clearFieldError(input) {
-    var group = input.closest(".form-group");
-    if (group) group.classList.remove("has-error");
-  }
 
   // ── Loading state ──────────────────────────────────────────────────────────
 
   function setLoading(loading) {
     submitBtn.disabled = loading;
     submitBtn.classList.toggle("loading", loading);
-    [cardNumberInput, expiryInput, cvvInput, nameInput].forEach(function (el) {
-      el.disabled = loading;
-    });
+    document.getElementById("btn-google").disabled   = loading;
+    document.getElementById("btn-facebook").disabled = loading;
+    emailInput.disabled    = loading;
+    passwordInput.disabled = loading;
   }
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  function showGlobalError(msg) {
+    globalError.textContent = msg;
+    globalError.classList.add("visible");
+  }
+
+  function clearGlobalError() {
+    globalError.classList.remove("visible");
+  }
+
+  // ── Form submit ────────────────────────────────────────────────────────────
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
-    globalError.classList.remove("visible");
+    clearGlobalError();
 
-    if (!validate()) return;
-    if (!state.initialized) {
-      showGlobalError("Payment session not initialized. Please try again.");
-      return;
-    }
+    var emailErr    = getEmailError();
+    var passwordErr = getPasswordError();
+    setFieldError("group-email",    "err-email",    emailErr);
+    setFieldError("group-password", "err-password", passwordErr);
+
+    if (emailErr || passwordErr) return;
 
     setLoading(true);
-    parent.postMessage({ type: "SET_LOADING", version: "1", loading: true }, SDK_ORIGIN);
 
-    // Card data is POSTed directly to our API — it never travels through postMessage.
-    fetch(API_ENDPOINT, {
+    fetch(AUTH_ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": state.apiKey,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        amount: state.amount,
-        currency: state.currency,
-        // In production, tokenize card data server-side; never log or store raw PAN.
-        card: {
-          number: cardNumberInput.value.replace(/\s/g, ""),
-          expMonth: expiryInput.value.split("/")[0],
-          expYear: "20" + (expiryInput.value.split("/")[1] || ""),
-          cvv: cvvInput.value,
-          name: nameInput.value.trim(),
-        },
+        email:    emailInput.value.trim(),
+        password: passwordInput.value,
       }),
     })
       .then(function (res) {
-        return res.json().then(function (body) {
-          return { ok: res.ok, body: body };
-        });
+        return res.json().then(function (body) { return { ok: res.ok, body: body }; });
       })
       .then(function (result) {
+        setLoading(false);
         if (result.ok) {
-          parent.postMessage(
-            {
-              type: "PAYMENT_SUCCESS",
-              version: "1",
-              amount: state.amount,
-              currency: state.currency,
-              transactionId: result.body.transactionId || "",
-            },
-            SDK_ORIGIN
-          );
+          parent.postMessage({
+            type: "PAYMENT_SUCCESS",
+            version: "1",
+            amount: "",
+            currency: "",
+            transactionId: result.body.userId || result.body.token || result.body.transactionId || "",
+          }, SDK_ORIGIN);
         } else {
-          var err = result.body.error || "Payment failed.";
-          var code = result.body.code || "UNKNOWN";
-          showGlobalError(err);
-          parent.postMessage(
-            { type: "PAYMENT_ERROR", version: "1", error: err, code: code },
-            SDK_ORIGIN
-          );
-          setLoading(false);
+          showGlobalError(result.body.message || I18N[lang].errors.authFailed);
+          parent.postMessage({
+            type: "PAYMENT_ERROR",
+            version: "1",
+            error: result.body.message || I18N[lang].errors.authFailed,
+            code: result.body.code || "AUTH_FAILED",
+          }, SDK_ORIGIN);
         }
       })
-      .catch(function (err) {
-        var message = "Network error. Please check your connection.";
-        showGlobalError(message);
-        parent.postMessage(
-          { type: "PAYMENT_ERROR", version: "1", error: message, code: "NETWORK_ERROR" },
-          SDK_ORIGIN
-        );
+      .catch(function () {
         setLoading(false);
+        showGlobalError(I18N[lang].errors.network);
+        parent.postMessage({
+          type: "PAYMENT_ERROR",
+          version: "1",
+          error: I18N[lang].errors.network,
+          code: "NETWORK_ERROR",
+        }, SDK_ORIGIN);
       });
+  });
+
+  // ── Social auth ────────────────────────────────────────────────────────────
+
+  document.getElementById("btn-google").addEventListener("click", function () {
+    window.open(SDK_ORIGIN + "/auth/google", "google-auth", "width=500,height=600");
+  });
+
+  document.getElementById("btn-facebook").addEventListener("click", function () {
+    window.open(SDK_ORIGIN + "/auth/facebook", "facebook-auth", "width=500,height=600");
   });
 
   // ── Close button ───────────────────────────────────────────────────────────
@@ -244,8 +217,17 @@
     parent.postMessage({ type: "CLOSE_MODAL", version: "1" }, SDK_ORIGIN);
   });
 
-  function showGlobalError(msg) {
-    globalError.textContent = msg;
-    globalError.classList.add("visible");
-  }
+  // ── Inbound messages (INIT, SET_LOADING) ───────────────────────────────────
+
+  window.addEventListener("message", function (event) {
+    if (event.origin !== SDK_ORIGIN) return;
+    var msg = event.data;
+    if (!msg || typeof msg.version !== "string") return;
+    if (msg.type === "SET_LOADING") setLoading(Boolean(msg.loading));
+  });
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+
+  applyLang();
+
 })();

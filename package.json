@@ -19,7 +19,8 @@
     "frames"
   ],
   "scripts": {
-    "build": "rollup -c",
+    "dev": "npm run build && cp test-local.html dist/ && npx serve -l 3000 dist",
+    "build": "rollup -c && rm -rf dist/frames && cp -r frames dist/frames",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

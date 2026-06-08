@@ -1,0 +1,35 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — edit here to restyle the entire form
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Brand */
+  --c-primary:        #5956E9;
+  --c-primary-dark:   #4540C7;
+  --c-primary-light:  #EEF0FF;
+  --c-primary-text:   #ffffff;
+
+  /* Surfaces */
+  --c-bg:             #ffffff;
+  --c-surface:        #f5f5fb;
+
+  /* Text */
+  --c-text:           #0f172a;
+  --c-text-muted:     #6b7280;
+
+  /* Borders */
+  --c-border:         #e2e1f5;
+
+  /* State */
+  --c-error:          #dc2626;
+
+  /* Social */
+  --c-google-bg:      #ffffff;
+  --c-google-border:  #dadce0;
+  --c-google-text:    #3c4043;
+  --c-facebook-bg:    #1877f2;
+  --c-facebook-text:  #ffffff;
+
+  /* Shape */
+  --radius:           10px;
+  --radius-sm:        8px;
+}

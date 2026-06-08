@@ -6,14 +6,13 @@ const BUTTON_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/button/`;
 const FORM_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/form/`;
 
 const OBSERVED_ATTRIBUTES = [
-  "api-key",
-  "amount",
-  "currency",
+  "merchant-id",
   "label",
   "color",
   "text-color",
   "width",
   "height",
+  "lang",
 ] as const;
 
 export class PayButtonElement extends HTMLElement {
@@ -26,6 +25,7 @@ export class PayButtonElement extends HTMLElement {
   private modalElements: ModalElements | null = null;
   private isModalOpen = false;
   private messageListener: ((event: MessageEvent) => void) | null = null;
+  private verified = false;
 
   constructor() {
     super();
@@ -45,9 +45,22 @@ export class PayButtonElement extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.updateIframeSrc();
-    this.updateIframeSize();
-    this.attachMessageListener();
+    this.buttonIframe.style.visibility = "hidden";
+    this.verifyMerchant().then((ok) => {
+      if (!this.isConnected) return;
+      if (!ok) {
+        this.dispatchCustomEvent("pay-button:error", {
+          error: "Merchant not registered",
+          code: "MERCHANT_NOT_VERIFIED",
+        });
+        return;
+      }
+      this.verified = true;
+      this.buttonIframe.style.visibility = "";
+      this.updateIframeSrc();
+      this.updateIframeSize();
+      this.attachMessageListener();
+    });
   }
 
   disconnectedCallback(): void {
@@ -58,13 +71,38 @@ export class PayButtonElement extends HTMLElement {
   }
 
   attributeChangedCallback(
-    _name: string,
+    name: string,
     oldValue: string | null,
     newValue: string | null
   ): void {
     if (oldValue === newValue) return;
+    if (name === "merchant-id") {
+      this.verified = false;
+      this.buttonIframe.style.visibility = "hidden";
+      this.removeMessageListener();
+      this.connectedCallback();
+      return;
+    }
+    if (!this.verified) return;
     this.updateIframeSrc();
     this.updateIframeSize();
+  }
+
+  private async verifyMerchant(): Promise<boolean> {
+    const merchantId = this.attr("merchant-id");
+    if (!merchantId) {
+      console.error("[nanatri-js-sdk] merchant-id is a required attribute on <pay-button>.");
+      return false;
+    }
+
+    // TODO: replace mock with real call when backend is ready
+    // const res = await fetch(
+    //   `${ALLOWED_ORIGIN}/api/v1/merchants/verify?merchantId=${encodeURIComponent(merchantId)}`
+    // );
+    // const data = await res.json();
+    // return data.verified === true;
+
+    return Promise.resolve(true);
   }
 
   private attr(name: string, fallback = ""): string {
@@ -73,10 +111,11 @@ export class PayButtonElement extends HTMLElement {
 
   private updateIframeSrc(): void {
     const params = new URLSearchParams({
-      label: this.attr("label", "Pay now"),
-      color: this.attr("color", "#1a1a2e"),
+      lang:      this.attr("lang", "en"),
+      color:     this.attr("color", "#5956E9"),
       textColor: this.attr("text-color", "#ffffff"),
     });
+    if (this.getAttribute("label")) params.set("label", this.attr("label"));
     this.buttonIframe.src = `${BUTTON_FRAME_SRC}?${params}`;
   }
 
@@ -140,15 +179,13 @@ export class PayButtonElement extends HTMLElement {
     if (this.isModalOpen) return;
 
     const params = new URLSearchParams({
-      apiKey: this.attr("api-key"),
-      amount: this.attr("amount"),
-      currency: this.attr("currency", "USD"),
-      color: this.attr("color", "#1a1a2e"),
+      color:     this.attr("color", "#5956E9"),
       textColor: this.attr("text-color", "#ffffff"),
+      lang:      this.attr("lang", "en"),
     });
     const formSrc = `${FORM_FRAME_SRC}?${params}`;
 
-    this.modalElements = createModal(formSrc);
+    this.modalElements = createModal(formSrc, "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox");
 
     openModal(this.shadow, this.modalElements, () => this.closePaymentModal());
 
@@ -162,12 +199,9 @@ export class PayButtonElement extends HTMLElement {
           sendMessage(this.modalElements.formIframe.contentWindow, {
             type: "INIT",
             version: "1",
-            apiKey: this.attr("api-key"),
-            amount: this.attr("amount"),
-            currency: this.attr("currency", "USD"),
-            color: this.attr("color", "#1a1a2e"),
+            color:     this.attr("color", "#5956E9"),
             textColor: this.attr("text-color", "#ffffff"),
-            label: this.attr("label", "Pay now"),
+            label:     this.attr("label", ""),
           });
         }
       },

@@ -1,0 +1,25 @@
+window.__i18n = window.__i18n || {};
+window.__i18n.en = {
+  addToWishlist: "Add to wishlist",
+  processing:    "Processing…",
+  title:               "Welcome back",
+  subtitle:            "Sign in to continue",
+  emailLabel:          "Email address",
+  emailPlaceholder:    "you@example.com",
+  passwordLabel:       "Password",
+  passwordPlaceholder: "Enter your password",
+  submit:              "Sign in",
+  or:                  "or continue with",
+  google:              "Continue with Google",
+  facebook:            "Continue with Facebook",
+  showPassword:        "Show password",
+  hidePassword:        "Hide password",
+  errors: {
+    emailRequired:    "Email is required",
+    emailInvalid:     "Enter a valid email address",
+    passwordRequired: "Password is required",
+    passwordShort:    "Password must be at least 6 characters",
+    authFailed:       "Incorrect email or password",
+    network:          "Network error. Please try again",
+  },
+};

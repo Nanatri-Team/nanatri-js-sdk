@@ -1,0 +1,25 @@
+window.__i18n = window.__i18n || {};
+window.__i18n.ka = {
+  addToWishlist: "სასურველებში დამატება",
+  processing:    "მიმდინარეობს…",
+  title:               "კეთილი დაბრუნება",
+  subtitle:            "გასაგრძელებლად შედით",
+  emailLabel:          "ელ.ფოსტა",
+  emailPlaceholder:    "თქვენი@მაგალითი.com",
+  passwordLabel:       "პაროლი",
+  passwordPlaceholder: "შეიყვანეთ პაროლი",
+  submit:              "შესვლა",
+  or:                  "ან გააგრძელეთ",
+  google:              "Google-ით შესვლა",
+  facebook:            "Facebook-ით შესვლა",
+  showPassword:        "პაროლის ჩვენება",
+  hidePassword:        "პაროლის დამალვა",
+  errors: {
+    emailRequired:    "ელ.ფოსტა სავალდებულოა",
+    emailInvalid:     "შეიყვანეთ სწორი ელ.ფოსტა",
+    passwordRequired: "პაროლი სავალდებულოა",
+    passwordShort:    "პაროლი მინიმუმ 6 სიმბოლო უნდა იყოს",
+    authFailed:       "ელ.ფოსტა ან პაროლი არასწორია",
+    network:          "ქსელის შეცდომა. სცადეთ თავიდან",
+  },
+};

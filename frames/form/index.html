@@ -3,105 +3,102 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!--
-    Strict CSP: scripts and resources may only load from our own origin.
-    Card data never passes through postMessage — it POSTs directly to our API.
-  -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self';" />
-  <title>Secure Payment</title>
+  <title>Sign In</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
+  <!-- Header: language switcher + close -->
   <div class="header">
-    <h2>Secure Checkout</h2>
-    <button id="close-btn" class="close-btn" type="button" aria-label="Close payment form">&#x2715;</button>
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button class="lang-btn active" data-lang="en" type="button">EN</button>
+      <button class="lang-btn"        data-lang="ka" type="button">KA</button>
+    </div>
+    <button id="close-btn" class="close-btn" type="button" aria-label="Close">&#x2715;</button>
   </div>
 
-  <div class="amount-display" id="amount-display">
-    <span class="label">Amount due</span>
-    <span class="value">—</span>
+  <!-- Title -->
+  <div class="title-block">
+    <h2 id="t-title"></h2>
+    <p  id="t-subtitle"></p>
   </div>
 
+  <!-- Global error -->
   <div id="global-error" class="global-error" role="alert"></div>
 
-  <form id="payment-form" novalidate autocomplete="off">
-    <div class="form-group">
-      <label for="cardholder-name">Cardholder name</label>
-      <input
-        type="text"
-        id="cardholder-name"
-        name="cardholder-name"
-        placeholder="Jane Smith"
-        autocomplete="cc-name"
-        inputmode="text"
-        maxlength="64"
-        required
-      />
-      <div class="field-error" aria-live="polite"></div>
-    </div>
+  <!-- Login form -->
+  <form id="auth-form" novalidate autocomplete="on">
 
-    <div class="form-group">
-      <label for="card-number">Card number</label>
-      <input
-        type="text"
-        id="card-number"
-        name="card-number"
-        placeholder="1234 5678 9012 3456"
-        autocomplete="cc-number"
-        inputmode="numeric"
-        maxlength="19"
-        required
-      />
-      <div class="field-error" aria-live="polite"></div>
-    </div>
-
-    <div class="row">
-      <div class="form-group">
-        <label for="expiry">Expiry</label>
+    <div class="form-group" id="group-email">
+      <label for="email" id="t-email-label"></label>
+      <div class="input-wrap">
         <input
-          type="text"
-          id="expiry"
-          name="expiry"
-          placeholder="MM/YY"
-          autocomplete="cc-exp"
-          inputmode="numeric"
-          maxlength="5"
+          type="email"
+          id="email"
+          name="email"
+          autocomplete="email"
+          inputmode="email"
           required
         />
-        <div class="field-error" aria-live="polite"></div>
       </div>
+      <div class="field-error" id="err-email" aria-live="polite"></div>
+    </div>
 
-      <div class="form-group">
-        <label for="cvv">CVV</label>
+    <div class="form-group" id="group-password">
+      <label for="password" id="t-password-label"></label>
+      <div class="input-wrap">
         <input
-          type="text"
-          id="cvv"
-          name="cvv"
-          placeholder="123"
-          autocomplete="cc-csc"
-          inputmode="numeric"
-          maxlength="4"
+          type="password"
+          id="password"
+          name="password"
+          autocomplete="current-password"
           required
         />
-        <div class="field-error" aria-live="polite"></div>
+        <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Show password">
+          <!-- eye icon injected by JS -->
+        </button>
       </div>
+      <div class="field-error" id="err-password" aria-live="polite"></div>
     </div>
 
     <button id="submit-btn" class="submit-btn" type="submit">
       <span class="spinner" aria-hidden="true"></span>
-      <span id="submit-label">Pay now</span>
+      <span id="t-submit"></span>
     </button>
+
   </form>
 
-  <p class="security-note" aria-label="Secured by 256-bit TLS encryption">
-    <svg width="11" height="13" viewBox="0 0 11 13" fill="none" aria-hidden="true">
-      <path d="M5.5 0L0 2v4c0 3.31 2.34 6.41 5.5 7C8.66 12.41 11 9.31 11 6V2L5.5 0z"
-            fill="#9ca3af"/>
-    </svg>
-    Secured with 256-bit TLS
-  </p>
+  <!-- Divider -->
+  <div class="divider"><span id="t-or"></span></div>
 
+  <!-- Social auth -->
+  <div class="social-btns">
+
+    <button id="btn-google" class="social-btn btn-google" type="button">
+      <!-- Google logo SVG -->
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z"/>
+      </svg>
+      <span id="t-google"></span>
+    </button>
+
+    <button id="btn-facebook" class="social-btn btn-facebook" type="button">
+      <!-- Facebook logo SVG -->
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="#ffffff">
+        <path d="M24 12.073C24 5.404 18.627 0 12 0S0 5.404 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
+      </svg>
+      <span id="t-facebook"></span>
+    </button>
+
+  </div>
+
+  <script src="../shared/locales/en.js"></script>
+  <script src="../shared/locales/ka.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

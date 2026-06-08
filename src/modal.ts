@@ -4,7 +4,7 @@ export interface ModalElements {
   formIframe: HTMLIFrameElement;
 }
 
-export function createModal(formSrc: string): ModalElements {
+export function createModal(formSrc: string, sandbox = "allow-scripts allow-same-origin allow-forms"): ModalElements {
   const backdrop = document.createElement("div");
   backdrop.style.cssText = [
     "position:fixed",
@@ -30,7 +30,7 @@ export function createModal(formSrc: string): ModalElements {
 
   const formIframe = document.createElement("iframe");
   formIframe.src = formSrc;
-  formIframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
+  formIframe.setAttribute("sandbox", sandbox);
   formIframe.setAttribute("title", "Secure Payment Form");
   formIframe.style.cssText = "width:100%;height:520px;border:none;display:block;";
 
