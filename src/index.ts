@@ -1,15 +1,16 @@
-import { PayButtonElement } from "./component";
+import { NanatriButtonElement } from "./component";
 
-export { PayButtonElement };
+export { NanatriButtonElement };
 export type {
-  PayButtonAttributes,
-  PayButtonSuccessDetail,
-  PayButtonErrorDetail,
+  NanatriButtonAttributes,
+  NanatriButtonSignedInDetail,
+  NanatriButtonAddedDetail,
+  NanatriButtonFailedDetail,
   BridgeMessage,
   OutboundMessage,
   InboundMessage,
 } from "./types";
 
-if (typeof customElements !== "undefined" && !customElements.get("pay-button")) {
-  customElements.define("pay-button", PayButtonElement);
+if (typeof customElements !== "undefined" && !customElements.get("nanatri-button")) {
+  customElements.define("nanatri-button", NanatriButtonElement);
 }

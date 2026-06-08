@@ -1,6 +1,11 @@
 import { ALLOWED_ORIGIN, createMessageListener, sendMessage } from "./bridge";
 import { createModal, openModal, closeModal, ModalElements } from "./modal";
-import type { BridgeMessage, PayButtonSuccessDetail, PayButtonErrorDetail } from "./types";
+import type {
+  BridgeMessage,
+  NanatriButtonSignedInDetail,
+  NanatriButtonAddedDetail,
+  NanatriButtonFailedDetail,
+} from "./types";
 
 const BUTTON_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/button/`;
 const FORM_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/form/`;
@@ -15,7 +20,7 @@ const OBSERVED_ATTRIBUTES = [
   "lang",
 ] as const;
 
-export class PayButtonElement extends HTMLElement {
+export class NanatriButtonElement extends HTMLElement {
   static get observedAttributes(): readonly string[] {
     return OBSERVED_ATTRIBUTES;
   }
@@ -36,7 +41,7 @@ export class PayButtonElement extends HTMLElement {
 
     this.buttonIframe = document.createElement("iframe");
     this.buttonIframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
-    this.buttonIframe.setAttribute("title", "Pay Button");
+    this.buttonIframe.setAttribute("title", "Nanatri Button");
     this.buttonIframe.setAttribute("scrolling", "no");
     this.buttonIframe.style.cssText = "border:none;display:block;overflow:hidden;";
 
@@ -49,7 +54,7 @@ export class PayButtonElement extends HTMLElement {
     this.verifyMerchant().then((ok) => {
       if (!this.isConnected) return;
       if (!ok) {
-        this.dispatchCustomEvent("pay-button:error", {
+        this.dispatchCustomEvent("nanatri-button:error", {
           error: "Merchant not registered",
           code: "MERCHANT_NOT_VERIFIED",
         });
@@ -91,7 +96,7 @@ export class PayButtonElement extends HTMLElement {
   private async verifyMerchant(): Promise<boolean> {
     const merchantId = this.attr("merchant-id");
     if (!merchantId) {
-      console.error("[nanatri-js-sdk] merchant-id is a required attribute on <pay-button>.");
+      console.error("[nanatri-js-sdk] merchant-id is a required attribute on <nanatri-button>.");
       return false;
     }
 
@@ -143,39 +148,45 @@ export class PayButtonElement extends HTMLElement {
   private handleMessage(msg: BridgeMessage): void {
     switch (msg.type) {
       case "BUTTON_CLICKED":
-        this.dispatchCustomEvent("pay-button:click");
-        this.openPaymentModal();
+        this.dispatchCustomEvent("nanatri-button:clicked");
+        this.openModal();
         break;
 
-      case "PAYMENT_SUCCESS": {
-        const detail: PayButtonSuccessDetail = {
-          amount: msg.amount as string,
-          currency: msg.currency as string,
-          transactionId: msg.transactionId as string,
+      case "USER_SIGNED_IN": {
+        const detail: NanatriButtonSignedInDetail = {
+          userId: msg.userId as string,
+        };
+        this.dispatchCustomEvent("nanatri-button:signed-in", detail);
+        break;
+      }
+
+      case "PRODUCT_ADDED": {
+        const detail: NanatriButtonAddedDetail = {
+          userId: msg.userId as string,
         };
         this.sendLoadingToForm(false);
-        this.dispatchCustomEvent("pay-button:success", detail);
+        this.dispatchCustomEvent("nanatri-button:added", detail);
         this.closePaymentModal();
         break;
       }
 
-      case "PAYMENT_ERROR": {
-        const detail: PayButtonErrorDetail = {
+      case "ADD_FAILED": {
+        const detail: NanatriButtonFailedDetail = {
           error: msg.error as string,
           code: msg.code as string,
         };
         this.sendLoadingToForm(false);
-        this.dispatchCustomEvent("pay-button:error", detail);
+        this.dispatchCustomEvent("nanatri-button:failed", detail);
         break;
       }
 
-      case "CLOSE_MODAL":
+      case "MODAL_CLOSED":
         this.closePaymentModal();
         break;
     }
   }
 
-  private openPaymentModal(): void {
+  private openModal(): void {
     if (this.isModalOpen) return;
 
     const params = new URLSearchParams({
@@ -190,7 +201,7 @@ export class PayButtonElement extends HTMLElement {
     openModal(this.shadow, this.modalElements, () => this.closePaymentModal());
 
     this.isModalOpen = true;
-    this.dispatchCustomEvent("pay-button:open");
+    this.dispatchCustomEvent("nanatri-button:opened");
 
     this.modalElements.formIframe.addEventListener(
       "load",
@@ -214,7 +225,7 @@ export class PayButtonElement extends HTMLElement {
     closeModal(this.shadow, this.modalElements);
     this.modalElements = null;
     this.isModalOpen = false;
-    this.dispatchCustomEvent("pay-button:close");
+    this.dispatchCustomEvent("nanatri-button:closed");
   }
 
   private sendLoadingToForm(loading: boolean): void {

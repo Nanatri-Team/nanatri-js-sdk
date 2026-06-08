@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { PayButtonElement } from "../src/component";
+import { NanatriButtonElement } from "../src/component";
 import { ALLOWED_ORIGIN } from "../src/bridge";
 
 // Register once for all tests
-if (!customElements.get("pay-button")) {
-  customElements.define("pay-button", PayButtonElement);
+if (!customElements.get("nanatri-button")) {
+  customElements.define("nanatri-button", NanatriButtonElement);
 }
 
-function createElement(attrs: Record<string, string> = {}): PayButtonElement {
-  const el = document.createElement("pay-button") as PayButtonElement;
+function createElement(attrs: Record<string, string> = {}): NanatriButtonElement {
+  const el = document.createElement("nanatri-button") as NanatriButtonElement;
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
   return el;
 }
@@ -22,14 +22,14 @@ function dispatch(type: string, data: Record<string, unknown> = {}): void {
   );
 }
 
-describe("PayButtonElement registration", () => {
-  it("is registered as pay-button custom element", () => {
-    expect(customElements.get("pay-button")).toBe(PayButtonElement);
+describe("NanatriButtonElement registration", () => {
+  it("is registered as nanatri-button custom element", () => {
+    expect(customElements.get("nanatri-button")).toBe(NanatriButtonElement);
   });
 
   it("can be created via document.createElement", () => {
-    const el = document.createElement("pay-button");
-    expect(el).toBeInstanceOf(PayButtonElement);
+    const el = document.createElement("nanatri-button");
+    expect(el).toBeInstanceOf(NanatriButtonElement);
   });
 });
 
@@ -52,14 +52,14 @@ describe("Shadow DOM", () => {
 describe("Attributes → iframe src", () => {
   it("reflects label, color, text-color in button iframe src", () => {
     const el = createElement({
-      label: "Buy now",
+      label: "Save",
       color: "#ff0000",
       "text-color": "#000000",
     });
     document.body.appendChild(el);
 
     const src = el.shadowRoot!.querySelector("iframe")!.src;
-    expect(src).toContain("label=Buy+now");
+    expect(src).toContain("label=Save");
     expect(src).toContain("color=%23ff0000");
     expect(src).toContain("textColor=%23000000");
 
@@ -71,19 +71,18 @@ describe("Attributes → iframe src", () => {
     document.body.appendChild(el);
 
     const src = el.shadowRoot!.querySelector("iframe")!.src;
-    expect(src).toContain("label=Pay+now");
-    expect(src).toContain("color=%231a1a2e");
+    expect(src).toContain("color=%235956E9");
 
     document.body.removeChild(el);
   });
 
   it("updates iframe src when attribute changes", () => {
-    const el = createElement({ label: "Pay" });
+    const el = createElement({ label: "Save" });
     document.body.appendChild(el);
 
-    el.setAttribute("label", "Donate");
+    el.setAttribute("label", "Add to list");
     const src = el.shadowRoot!.querySelector("iframe")!.src;
-    expect(src).toContain("label=Donate");
+    expect(src).toContain("label=Add+to+list");
 
     document.body.removeChild(el);
   });
@@ -106,7 +105,7 @@ describe("postMessage origin validation", () => {
     document.body.appendChild(el);
 
     const listener = vi.fn();
-    el.addEventListener("pay-button:click", listener);
+    el.addEventListener("nanatri-button:clicked", listener);
 
     window.dispatchEvent(
       new MessageEvent("message", {
@@ -124,7 +123,7 @@ describe("postMessage origin validation", () => {
     document.body.appendChild(el);
 
     const listener = vi.fn();
-    el.addEventListener("pay-button:click", listener);
+    el.addEventListener("nanatri-button:clicked", listener);
 
     window.dispatchEvent(
       new MessageEvent("message", {
@@ -139,10 +138,10 @@ describe("postMessage origin validation", () => {
 });
 
 describe("Custom events from correct-origin messages", () => {
-  let el: PayButtonElement;
+  let el: NanatriButtonElement;
 
   beforeEach(() => {
-    el = createElement({ "api-key": "k_test", amount: "9.99" });
+    el = createElement({ "merchant-id": "merchant_123" });
     document.body.appendChild(el);
   });
 
@@ -150,57 +149,61 @@ describe("Custom events from correct-origin messages", () => {
     if (el.isConnected) document.body.removeChild(el);
   });
 
-  it("dispatches pay-button:click on BUTTON_CLICKED", () => {
+  it("dispatches nanatri-button:clicked on BUTTON_CLICKED", () => {
     const spy = vi.fn();
-    el.addEventListener("pay-button:click", spy);
+    el.addEventListener("nanatri-button:clicked", spy);
     dispatch("BUTTON_CLICKED");
     expect(spy).toHaveBeenCalledOnce();
   });
 
-  it("dispatches pay-button:open when modal opens", () => {
+  it("dispatches nanatri-button:opened when modal opens", () => {
     const spy = vi.fn();
-    el.addEventListener("pay-button:open", spy);
+    el.addEventListener("nanatri-button:opened", spy);
     dispatch("BUTTON_CLICKED");
     expect(spy).toHaveBeenCalledOnce();
   });
 
-  it("dispatches pay-button:success with detail on PAYMENT_SUCCESS", () => {
+  it("dispatches nanatri-button:signed-in with detail on USER_SIGNED_IN", () => {
     const spy = vi.fn();
-    el.addEventListener("pay-button:success", spy);
-    dispatch("PAYMENT_SUCCESS", {
-      amount: "9.99",
-      currency: "USD",
-      transactionId: "txn_xyz",
-    });
+    el.addEventListener("nanatri-button:signed-in", spy);
+    dispatch("USER_SIGNED_IN", { userId: "user_abc" });
     expect(spy).toHaveBeenCalledOnce();
     const detail = (spy.mock.calls[0][0] as CustomEvent).detail;
-    expect(detail).toEqual({ amount: "9.99", currency: "USD", transactionId: "txn_xyz" });
+    expect(detail).toEqual({ userId: "user_abc" });
   });
 
-  it("dispatches pay-button:error with detail on PAYMENT_ERROR", () => {
+  it("dispatches nanatri-button:added with detail on PRODUCT_ADDED", () => {
     const spy = vi.fn();
-    el.addEventListener("pay-button:error", spy);
-    dispatch("PAYMENT_ERROR", { error: "Card declined", code: "DECLINED" });
+    el.addEventListener("nanatri-button:added", spy);
+    dispatch("PRODUCT_ADDED", { userId: "user_abc" });
     expect(spy).toHaveBeenCalledOnce();
     const detail = (spy.mock.calls[0][0] as CustomEvent).detail;
-    expect(detail).toEqual({ error: "Card declined", code: "DECLINED" });
+    expect(detail).toEqual({ userId: "user_abc" });
   });
 
-  it("dispatches pay-button:close on CLOSE_MODAL", () => {
-    // First open, then close
+  it("dispatches nanatri-button:failed with detail on ADD_FAILED", () => {
+    const spy = vi.fn();
+    el.addEventListener("nanatri-button:failed", spy);
+    dispatch("ADD_FAILED", { error: "Not found", code: "NOT_FOUND" });
+    expect(spy).toHaveBeenCalledOnce();
+    const detail = (spy.mock.calls[0][0] as CustomEvent).detail;
+    expect(detail).toEqual({ error: "Not found", code: "NOT_FOUND" });
+  });
+
+  it("dispatches nanatri-button:closed on MODAL_CLOSED", () => {
     dispatch("BUTTON_CLICKED");
     const spy = vi.fn();
-    el.addEventListener("pay-button:close", spy);
-    dispatch("CLOSE_MODAL");
+    el.addEventListener("nanatri-button:closed", spy);
+    dispatch("MODAL_CLOSED");
     expect(spy).toHaveBeenCalledOnce();
   });
 });
 
 describe("Modal lifecycle", () => {
-  let el: PayButtonElement;
+  let el: NanatriButtonElement;
 
   beforeEach(() => {
-    el = createElement({ "api-key": "k_test", amount: "9.99" });
+    el = createElement({ "merchant-id": "merchant_123" });
     document.body.appendChild(el);
   });
 
@@ -214,10 +217,10 @@ describe("Modal lifecycle", () => {
     expect(el.shadowRoot!.querySelectorAll("div").length).toBeGreaterThan(0);
   });
 
-  it("removes modal backdrop from shadow root on CLOSE_MODAL", () => {
+  it("removes modal backdrop from shadow root on MODAL_CLOSED", () => {
     dispatch("BUTTON_CLICKED");
     expect(el.shadowRoot!.querySelectorAll("div").length).toBeGreaterThan(0);
-    dispatch("CLOSE_MODAL");
+    dispatch("MODAL_CLOSED");
     expect(el.shadowRoot!.querySelectorAll("div[style*='fixed']").length).toBe(0);
   });
 
@@ -228,15 +231,11 @@ describe("Modal lifecycle", () => {
     expect(el.shadowRoot!.querySelectorAll("div").length).toBe(backdropCount);
   });
 
-  it("dispatches pay-button:close when modal closes after PAYMENT_SUCCESS", () => {
+  it("dispatches nanatri-button:closed when modal closes after PRODUCT_ADDED", () => {
     dispatch("BUTTON_CLICKED");
     const spy = vi.fn();
-    el.addEventListener("pay-button:close", spy);
-    dispatch("PAYMENT_SUCCESS", {
-      amount: "9.99",
-      currency: "USD",
-      transactionId: "txn_abc",
-    });
+    el.addEventListener("nanatri-button:closed", spy);
+    dispatch("PRODUCT_ADDED", { userId: "user_abc" });
     expect(spy).toHaveBeenCalledOnce();
   });
 });
@@ -259,7 +258,7 @@ describe("disconnectedCallback — no memory leaks", () => {
     document.body.appendChild(el);
 
     const spy = vi.fn();
-    el.addEventListener("pay-button:click", spy);
+    el.addEventListener("nanatri-button:clicked", spy);
 
     document.body.removeChild(el);
     dispatch("BUTTON_CLICKED");

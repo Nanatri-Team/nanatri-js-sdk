@@ -1,4 +1,4 @@
-export interface PayButtonAttributes {
+export interface NanatriButtonAttributes {
   merchantId: string;
   label: string;
   color: string;
@@ -36,38 +36,44 @@ export interface ButtonClickedMessage extends BridgeMessage {
   type: "BUTTON_CLICKED";
 }
 
-export interface PaymentSuccessMessage extends BridgeMessage {
-  type: "PAYMENT_SUCCESS";
-  amount: string;
-  currency: string;
-  transactionId: string;
+export interface UserSignedInMessage extends BridgeMessage {
+  type: "USER_SIGNED_IN";
+  userId: string;
 }
 
-export interface PaymentErrorMessage extends BridgeMessage {
-  type: "PAYMENT_ERROR";
+export interface ProductAddedMessage extends BridgeMessage {
+  type: "PRODUCT_ADDED";
+  userId: string;
+}
+
+export interface AddFailedMessage extends BridgeMessage {
+  type: "ADD_FAILED";
   error: string;
   code: string;
 }
 
-export interface CloseModalMessage extends BridgeMessage {
-  type: "CLOSE_MODAL";
+export interface ModalClosedMessage extends BridgeMessage {
+  type: "MODAL_CLOSED";
 }
 
 export type InboundMessage =
   | ButtonClickedMessage
-  | PaymentSuccessMessage
-  | PaymentErrorMessage
-  | CloseModalMessage;
+  | UserSignedInMessage
+  | ProductAddedMessage
+  | AddFailedMessage
+  | ModalClosedMessage;
 
 // ── Custom-event detail shapes ──────────────────────────────────────────────
 
-export interface PayButtonSuccessDetail {
-  amount: string;
-  currency: string;
-  transactionId: string;
+export interface NanatriButtonSignedInDetail {
+  userId: string;
 }
 
-export interface PayButtonErrorDetail {
+export interface NanatriButtonAddedDetail {
+  userId: string;
+}
+
+export interface NanatriButtonFailedDetail {
   error: string;
   code: string;
 }
