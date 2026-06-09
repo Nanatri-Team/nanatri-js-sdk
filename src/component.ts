@@ -7,8 +7,8 @@ import type {
   NanatriButtonFailedDetail,
 } from "./types";
 
-const BUTTON_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/button/`;
-const FORM_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/form/`;
+const BUTTON_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/button/index.html`;
+const FORM_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/form/index.html`;
 
 const OBSERVED_ATTRIBUTES = [
   "merchant-id",
