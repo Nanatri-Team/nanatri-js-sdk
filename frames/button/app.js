@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  var SDK_ORIGIN = location.hostname === "localhost" ? "http://localhost:3000" : "https://your-sdk.com";
   var params    = new URLSearchParams(location.search);
   var lang      = params.get("lang")      || "en";
   var color     = params.get("color")     || "#5956E9";
@@ -36,11 +35,11 @@
   // ── Events ─────────────────────────────────────────────────────────────────
 
   btn.addEventListener("click", function () {
-    parent.postMessage({ type: "BUTTON_CLICKED", version: "1" }, SDK_ORIGIN);
+    parent.postMessage({ type: "BUTTON_CLICKED", version: "1" }, "*");
   });
 
   window.addEventListener("message", function (event) {
-    if (event.origin !== SDK_ORIGIN) return;
+    if (event.source !== window.parent) return;
     var msg = event.data;
     if (!msg || typeof msg.version !== "string") return;
 

@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var SDK_ORIGIN    = location.hostname === "localhost" ? "http://localhost:3000" : "https://your-sdk.com";
+  var SDK_ORIGIN    = location.origin;
   var AUTH_ENDPOINT = SDK_ORIGIN + "/api/v1/auth/login";
 
   var I18N = window.__i18n;
@@ -173,31 +173,29 @@
         setLoading(false);
         if (result.ok) {
           parent.postMessage({
-            type: "PAYMENT_SUCCESS",
+            type: "PRODUCT_ADDED",
             version: "1",
-            amount: "",
-            currency: "",
-            transactionId: result.body.userId || result.body.token || result.body.transactionId || "",
-          }, SDK_ORIGIN);
+            userId: result.body.userId || "",
+          }, "*");
         } else {
           showGlobalError(result.body.message || I18N[lang].errors.authFailed);
           parent.postMessage({
-            type: "PAYMENT_ERROR",
+            type: "ADD_FAILED",
             version: "1",
             error: result.body.message || I18N[lang].errors.authFailed,
             code: result.body.code || "AUTH_FAILED",
-          }, SDK_ORIGIN);
+          }, "*");
         }
       })
       .catch(function () {
         setLoading(false);
         showGlobalError(I18N[lang].errors.network);
         parent.postMessage({
-          type: "PAYMENT_ERROR",
+          type: "ADD_FAILED",
           version: "1",
           error: I18N[lang].errors.network,
           code: "NETWORK_ERROR",
-        }, SDK_ORIGIN);
+        }, "*");
       });
   });
 
@@ -214,13 +212,13 @@
   // ── Close button ───────────────────────────────────────────────────────────
 
   document.getElementById("close-btn").addEventListener("click", function () {
-    parent.postMessage({ type: "CLOSE_MODAL", version: "1" }, SDK_ORIGIN);
+    parent.postMessage({ type: "MODAL_CLOSED", version: "1" }, "*");
   });
 
   // ── Inbound messages (INIT, SET_LOADING) ───────────────────────────────────
 
   window.addEventListener("message", function (event) {
-    if (event.origin !== SDK_ORIGIN) return;
+    if (event.source !== window.parent) return;
     var msg = event.data;
     if (!msg || typeof msg.version !== "string") return;
     if (msg.type === "SET_LOADING") setLoading(Boolean(msg.loading));
