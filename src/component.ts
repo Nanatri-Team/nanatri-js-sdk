@@ -1,4 +1,4 @@
-import { ALLOWED_ORIGIN, createMessageListener, sendMessage } from "./bridge";
+import { ALLOWED_ORIGIN, sendMessage } from "./bridge";
 import { createModal, openModal, closeModal, ModalElements } from "./modal";
 import type {
   BridgeMessage,
@@ -134,7 +134,15 @@ export class NanatriButtonElement extends HTMLElement {
   }
 
   private attachMessageListener(): void {
-    this.messageListener = createMessageListener((msg) => this.handleMessage(msg));
+    this.messageListener = (event: MessageEvent) => {
+      if (event.origin !== ALLOWED_ORIGIN) return;
+      const fromButton = event.source === this.buttonIframe.contentWindow;
+      const fromForm = !!this.modalElements && event.source === this.modalElements.formIframe.contentWindow;
+      if (!fromButton && !fromForm) return;
+      const data = event.data as BridgeMessage;
+      if (!data || typeof data.version !== "string") return;
+      this.handleMessage(data);
+    };
     window.addEventListener("message", this.messageListener);
   }
 
