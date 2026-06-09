@@ -1,6 +1,9 @@
 (function () {
   "use strict";
 
+  var urlParams   = new URLSearchParams(window.location.search);
+  var currentLang = urlParams.get("lang") || "en";
+
   var slider       = document.getElementById("slider");
   var phoneInput   = document.getElementById("phone-input");
   var phoneSubmit  = document.getElementById("phone-submit");
@@ -11,19 +14,47 @@
   var otpSubmit    = document.getElementById("otp-submit");
   var closeBtn     = document.getElementById("close-btn");
   var langBtns     = document.querySelectorAll(".lang-btn");
+  var googleBtn    = document.getElementById("google-btn");
+  var facebookBtn  = document.getElementById("facebook-btn");
 
   var phone = "";
 
-  // ── Language ────────────────────────────────────────────────────────────────
+  // ── i18n ────────────────────────────────────────────────────────────────────
+
+  function t(key) {
+    var i18n = window.__i18n && window.__i18n[currentLang];
+    return (i18n && i18n[key]) || "";
+  }
+
+  function applyLang() {
+    document.getElementById("screen-title").textContent    = t("title");
+    document.getElementById("screen-subtitle").textContent = t("subtitle");
+    document.getElementById("phone-label").textContent     = t("phoneLabel");
+    phoneInput.placeholder                                  = t("phonePlaceholder");
+    phoneSubmit.textContent                                 = t("continue");
+    document.getElementById("or-text").textContent         = t("or");
+    document.getElementById("google-label").textContent    = t("google");
+    document.getElementById("facebook-label").textContent  = t("facebook");
+    document.getElementById("otp-title").textContent       = t("otpTitle");
+    document.getElementById("sent-to-text").textContent    = t("otpSentTo");
+    otpSubmit.textContent                                   = t("verify");
+    backBtn.textContent                                     = "← " + t("back");
+
+    langBtns.forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-lang") === currentLang);
+    });
+  }
+
+  // ── Language switch ──────────────────────────────────────────────────────────
 
   langBtns.forEach(function (btn) {
     btn.addEventListener("click", function () {
-      langBtns.forEach(function (b) { b.classList.remove("active"); });
-      btn.classList.add("active");
+      currentLang = btn.getAttribute("data-lang");
+      applyLang();
     });
   });
 
-  // ── Phone screen ────────────────────────────────────────────────────────────
+  // ── Phone screen ─────────────────────────────────────────────────────────────
 
   function isValidPhone(val) {
     return val.replace(/[\s\-()]/g, "").length >= 6;
@@ -104,23 +135,38 @@
     parent.postMessage({ type: "PRODUCT_ADDED", version: "1", userId: phone }, "*");
   });
 
-  // ── Close ────────────────────────────────────────────────────────────────────
+  // ── Social auth ──────────────────────────────────────────────────────────────
+
+  googleBtn.addEventListener("click", function () {
+    parent.postMessage({ type: "USER_SIGNED_IN", version: "1", userId: "google_user" }, "*");
+  });
+
+  facebookBtn.addEventListener("click", function () {
+    parent.postMessage({ type: "USER_SIGNED_IN", version: "1", userId: "facebook_user" }, "*");
+  });
+
+  // ── Close ─────────────────────────────────────────────────────────────────────
 
   closeBtn.addEventListener("click", function () {
     parent.postMessage({ type: "MODAL_CLOSED", version: "1" }, "*");
   });
 
-  // ── Inbound messages ─────────────────────────────────────────────────────────
+  // ── Inbound messages ──────────────────────────────────────────────────────────
 
   window.addEventListener("message", function (event) {
     if (event.source !== window.parent) return;
     var msg = event.data;
     if (!msg || typeof msg.version !== "string") return;
     if (msg.type === "INIT") {
+      if (msg.lang) currentLang = msg.lang;
+      applyLang();
       phoneInput.focus();
     }
   });
 
+  // ── Init ──────────────────────────────────────────────────────────────────────
+
+  applyLang();
   phoneInput.focus();
 
 })();
