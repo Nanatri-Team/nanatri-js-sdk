@@ -1,9 +1,23 @@
 import type { BridgeMessage, OutboundMessage } from "./types";
 
-export const ALLOWED_ORIGIN =
-  typeof location !== "undefined" && location.hostname === "localhost"
-    ? "http://localhost:3000"
-    : "https://nanatri-js-sdk.georgemaevsky.workers.dev";
+const FALLBACK_ORIGIN = "https://nanatri-js-sdk.georgemaevsky.workers.dev";
+
+function detectOrigin(): string {
+  if (typeof document === "undefined") return FALLBACK_ORIGIN;
+  const scripts = document.querySelectorAll<HTMLScriptElement>("script[src]");
+  for (const script of Array.from(scripts)) {
+    if (script.src.includes("sdk")) {
+      try {
+        return new URL(script.src).origin;
+      } catch {
+        // ignore malformed URLs
+      }
+    }
+  }
+  return FALLBACK_ORIGIN;
+}
+
+export const ALLOWED_ORIGIN = detectOrigin();
 
 export type MessageHandler = (message: BridgeMessage) => void;
 
