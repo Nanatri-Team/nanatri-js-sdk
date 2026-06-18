@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nanatri</title>
-  <link rel="stylesheet" href="style.css" />
-  <script src="../shared/locales/en.js"></script>
-  <script src="../shared/locales/ka.js"></script>
+  <link rel="stylesheet" href="/frames/form/style.css" />
+  <script src="/frames/shared/locales/en.js"></script>
+  <script src="/frames/shared/locales/ka.js"></script>
 </head>
 <body>
   <div class="modal-inner">
@@ -26,11 +26,33 @@
         <div class="slide">
           <h2 class="title" id="screen-title">Welcome back</h2>
           <p class="subtitle" id="screen-subtitle">Enter your phone number to continue</p>
-          <div class="field">
-            <label class="field-label" for="phone-input" id="phone-label">PHONE NUMBER</label>
-            <input id="phone-input" class="input" type="tel" placeholder="599 33 33 33" autocomplete="tel" />
+
+          <!-- Phone combo field -->
+          <div class="phone-field" id="phone-field">
+            <label class="field-label" for="phone-number-input" id="phone-label">PHONE NUMBER</label>
+            <div class="phone-combo" id="phone-combo">
+              <button id="country-btn" class="country-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                <span id="country-flag" class="country-flag"></span>
+                <span id="country-dial" class="country-dial"></span>
+                <svg class="chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+              <div class="combo-divider"></div>
+              <input id="phone-number-input" class="phone-number-input" type="tel" inputmode="numeric" placeholder="599 000 000" autocomplete="tel-national" />
+            </div>
+
+            <!-- Country dropdown -->
+            <div id="country-dropdown" class="country-dropdown" hidden>
+              <div class="dropdown-search-wrap">
+                <input id="country-search" class="dropdown-search" type="text" placeholder="Search country..." autocomplete="off" spellcheck="false" />
+              </div>
+              <ul id="country-list" class="country-list" role="listbox"></ul>
+            </div>
+
             <span class="field-error" id="err-phone"></span>
           </div>
+
           <button id="phone-submit" class="btn-primary" type="button">Continue</button>
 
           <div class="divider">
@@ -66,8 +88,14 @@
             <input type="tel" maxlength="1" class="otp-box" />
             <input type="tel" maxlength="1" class="otp-box" />
             <input type="tel" maxlength="1" class="otp-box" />
+            <input type="tel" maxlength="1" class="otp-box" />
+            <input type="tel" maxlength="1" class="otp-box" />
           </div>
-          <button id="otp-submit" class="btn-primary btn-primary--bottom" type="button">Verify</button>
+          <span class="field-error" id="err-otp"></span>
+          <div class="otp-footer">
+            <button id="otp-submit" class="btn-primary" type="button">Verify</button>
+            <button id="resend-btn" class="btn-resend" type="button" disabled>Resend in 30s</button>
+          </div>
         </div>
 
       </div>
@@ -75,6 +103,6 @@
 
   </div>
 
-  <script src="app.js"></script>
+  <script src="/frames/form/bundle.js"></script>
 </body>
 </html>

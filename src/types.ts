@@ -21,6 +21,8 @@ export interface InitMessage extends BridgeMessage {
   color: string;
   textColor: string;
   label: string;
+  merchantSlug: string;
+  apiBaseUrl: string;
 }
 
 export interface SetLoadingMessage extends BridgeMessage {
@@ -36,9 +38,19 @@ export interface ButtonClickedMessage extends BridgeMessage {
   type: "BUTTON_CLICKED";
 }
 
+export interface AuthUser {
+  id: string;
+  phoneNumber?: string;
+  displayName?: string;
+  accountType: string;
+}
+
 export interface UserSignedInMessage extends BridgeMessage {
   type: "USER_SIGNED_IN";
-  userId: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+  user: AuthUser;
 }
 
 export interface ProductAddedMessage extends BridgeMessage {
@@ -66,7 +78,10 @@ export type InboundMessage =
 // ── Custom-event detail shapes ──────────────────────────────────────────────
 
 export interface NanatriButtonSignedInDetail {
-  userId: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+  user: AuthUser;
 }
 
 export interface NanatriButtonAddedDetail {

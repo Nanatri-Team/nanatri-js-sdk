@@ -1,4 +1,4 @@
-@import url('../shared/tokens.css');
+@import url('/frames/shared/tokens.css');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -250,15 +250,15 @@ html, body {
 .otp-boxes {
   display: flex;
   justify-content: center;
-  gap: 14px;
-  margin-bottom: 28px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .otp-box {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 54px;
   text-align: center;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 700;
   font-family: inherit;
   border: 1.5px solid var(--c-border);
@@ -276,4 +276,184 @@ html, body {
 }
 .otp-box.filled {
   border-color: var(--c-primary);
+}
+.otp-box:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── OTP footer (submit + resend pushed to bottom) ───────────────────────── */
+.otp-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Resend button ───────────────────────────────────────────────────────── */
+.btn-resend {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--c-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 6px;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.15s;
+}
+.btn-resend:hover:not(:disabled) { opacity: 0.75; }
+.btn-resend:disabled { color: var(--c-text-muted); cursor: not-allowed; }
+
+/* ── Disabled states ─────────────────────────────────────────────────────── */
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Phone combo ─────────────────────────────────────────────────────────── */
+.phone-field {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.phone-combo {
+  display: flex;
+  align-items: stretch;
+  height: 48px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  overflow: visible;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  /* clip children to border-radius */
+  clip-path: none;
+}
+
+.phone-combo:focus-within {
+  background: var(--c-bg);
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px var(--c-primary-light);
+}
+
+.country-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px 0 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--c-text);
+  font-family: inherit;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.country-btn:hover:not(:disabled) { background: rgba(255,255,255,0.04); }
+.country-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.country-flag { font-size: 18px; line-height: 1; }
+
+.country-dial {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 38px;
+  color: var(--c-text);
+  letter-spacing: 0.01em;
+}
+
+.chevron { color: var(--c-text-muted); flex-shrink: 0; }
+
+.combo-divider {
+  width: 1.5px;
+  background: var(--c-border);
+  flex-shrink: 0;
+  align-self: stretch;
+  margin: 8px 0;
+}
+
+.phone-number-input {
+  flex: 1;
+  height: 100%;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--c-text);
+  outline: none;
+  min-width: 0;
+}
+.phone-number-input::placeholder { color: var(--c-text-muted); }
+.phone-number-input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Country dropdown ─────────────────────────────────────────────────────── */
+.country-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--c-surface);
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  z-index: 200;
+  overflow: hidden;
+}
+.country-dropdown[hidden] { display: none; }
+
+.dropdown-search-wrap {
+  padding: 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.dropdown-search {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.dropdown-search:focus { border-color: var(--c-primary); }
+.dropdown-search::placeholder { color: var(--c-text-muted); }
+
+.country-list {
+  list-style: none;
+  max-height: 196px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.country-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.country-item:hover { background: rgba(255,255,255,0.05); }
+.country-item.selected { background: var(--c-primary-light); }
+
+.country-item-flag { font-size: 16px; flex-shrink: 0; }
+
+.country-item-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--c-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.country-item-dial {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-muted);
+  flex-shrink: 0;
 }

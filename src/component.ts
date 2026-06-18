@@ -1,4 +1,5 @@
 import { ALLOWED_ORIGIN, sendMessage } from "./bridge";
+import { API_BASE_URL, DASHBOARD_URL } from "./config";
 import { createModal, openModal, closeModal, ModalElements } from "./modal";
 import type {
   BridgeMessage,
@@ -162,9 +163,22 @@ export class NanatriButtonElement extends HTMLElement {
 
       case "USER_SIGNED_IN": {
         const detail: NanatriButtonSignedInDetail = {
-          userId: msg.userId as string,
+          accessToken:  msg.accessToken as string,
+          refreshToken: msg.refreshToken as string,
+          expiresAt:    msg.expiresAt as string,
+          user:         msg.user as NanatriButtonSignedInDetail["user"],
         };
+        this.closePaymentModal();
         this.dispatchCustomEvent("nanatri-button:signed-in", detail);
+
+        if (DASHBOARD_URL) {
+          const params = new URLSearchParams({
+            access_token:  detail.accessToken,
+            refresh_token: detail.refreshToken,
+            expires_at:    detail.expiresAt,
+          });
+          window.location.href = `${DASHBOARD_URL}/login#${params.toString()}`;
+        }
         break;
       }
 
@@ -198,9 +212,11 @@ export class NanatriButtonElement extends HTMLElement {
     if (this.isModalOpen) return;
 
     const params = new URLSearchParams({
-      color:     this.attr("color", "#5956E9"),
-      textColor: this.attr("text-color", "#ffffff"),
-      lang:      this.attr("lang", "en"),
+      color:        this.attr("color", "#5956E9"),
+      textColor:    this.attr("text-color", "#ffffff"),
+      lang:         this.attr("lang", "en"),
+      merchantSlug: this.attr("merchant-id"),
+      apiBaseUrl:   API_BASE_URL,
     });
     const formSrc = `${FORM_FRAME_SRC}?${params}`;
 
@@ -216,11 +232,13 @@ export class NanatriButtonElement extends HTMLElement {
       () => {
         if (this.modalElements?.formIframe.contentWindow) {
           sendMessage(this.modalElements.formIframe.contentWindow, {
-            type: "INIT",
-            version: "1",
-            color:     this.attr("color", "#5956E9"),
-            textColor: this.attr("text-color", "#ffffff"),
-            label:     this.attr("label", ""),
+            type:         "INIT",
+            version:      "1",
+            color:        this.attr("color", "#5956E9"),
+            textColor:    this.attr("text-color", "#ffffff"),
+            label:        this.attr("label", ""),
+            merchantSlug: this.attr("merchant-id"),
+            apiBaseUrl:   API_BASE_URL,
           });
         }
       },
