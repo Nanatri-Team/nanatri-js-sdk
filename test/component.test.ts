@@ -141,7 +141,7 @@ describe("Custom events from correct-origin messages", () => {
   let el: NanatriButtonElement;
 
   beforeEach(() => {
-    el = createElement({ "merchant-id": "merchant_123" });
+    el = createElement({ "merchant-id": "test-merchant" });
     document.body.appendChild(el);
   });
 
@@ -203,7 +203,7 @@ describe("Modal lifecycle", () => {
   let el: NanatriButtonElement;
 
   beforeEach(() => {
-    el = createElement({ "merchant-id": "merchant_123" });
+    el = createElement({ "merchant-id": "test-merchant" });
     document.body.appendChild(el);
   });
 
