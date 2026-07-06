@@ -14,4 +14,7 @@ window.__i18n.ka = {
   or:               "ან გააგრძელეთ",
   google:           "Google-ით შესვლა",
   facebook:         "Facebook-ით შესვლა",
+  successTitle:     "დამატებულია სასურველების სიაში!",
+  successSubtitle:  "გააზიარეთ თქვენი სია, რომ სხვებმაც დაგეხმარონ დაფინანსებაში.",
+  viewWishlist:     "ჩემი სიის ნახვა",
 };

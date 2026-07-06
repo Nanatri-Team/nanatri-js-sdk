@@ -13,6 +13,7 @@ const FORM_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/form/index.html`;
 
 const OBSERVED_ATTRIBUTES = [
   "merchant-id",
+  "item-id",
   "label",
   "color",
   "text-color",
@@ -163,32 +164,28 @@ export class NanatriButtonElement extends HTMLElement {
 
       case "USER_SIGNED_IN": {
         const detail: NanatriButtonSignedInDetail = {
-          accessToken:  msg.accessToken as string,
-          refreshToken: msg.refreshToken as string,
-          expiresAt:    msg.expiresAt as string,
-          user:         msg.user as NanatriButtonSignedInDetail["user"],
+          accessToken:               msg.accessToken as string,
+          refreshToken:              msg.refreshToken as string,
+          expiresAt:                 msg.expiresAt as string,
+          user:                      msg.user as NanatriButtonSignedInDetail["user"],
+          requiresProfileCompletion: (msg.requiresProfileCompletion as boolean) ?? false,
+          wishlistId:                msg.wishlistId as string | null | undefined,
         };
-        this.closePaymentModal();
+        // The form shows an in-modal confirmation screen instead of us navigating
+        // away — stay on the merchant page and leave the modal open.
         this.dispatchCustomEvent("nanatri-button:signed-in", detail);
-
-        if (DASHBOARD_URL) {
-          const params = new URLSearchParams({
-            access_token:  detail.accessToken,
-            refresh_token: detail.refreshToken,
-            expires_at:    detail.expiresAt,
-          });
-          window.location.href = `${DASHBOARD_URL}/login#${params.toString()}`;
-        }
         break;
       }
 
       case "PRODUCT_ADDED": {
         const detail: NanatriButtonAddedDetail = {
-          userId: msg.userId as string,
+          userId:     msg.userId as string,
+          wishlistId: msg.wishlistId as string | undefined,
         };
         this.sendLoadingToForm(false);
         this.dispatchCustomEvent("nanatri-button:added", detail);
-        this.closePaymentModal();
+        // Modal stays open showing the form's success screen; it closes when the
+        // user dismisses it (MODAL_CLOSED).
         break;
       }
 
@@ -216,7 +213,9 @@ export class NanatriButtonElement extends HTMLElement {
       textColor:    this.attr("text-color", "#ffffff"),
       lang:         this.attr("lang", "en"),
       merchantSlug: this.attr("merchant-id"),
+      itemId:       this.attr("item-id"),
       apiBaseUrl:   API_BASE_URL,
+      dashboardUrl: DASHBOARD_URL,
     });
     const formSrc = `${FORM_FRAME_SRC}?${params}`;
 
@@ -238,7 +237,9 @@ export class NanatriButtonElement extends HTMLElement {
             textColor:    this.attr("text-color", "#ffffff"),
             label:        this.attr("label", ""),
             merchantSlug: this.attr("merchant-id"),
+            itemId:       this.attr("item-id"),
             apiBaseUrl:   API_BASE_URL,
+            dashboardUrl: DASHBOARD_URL,
           });
         }
       },

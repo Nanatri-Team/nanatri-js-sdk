@@ -23,6 +23,7 @@ export interface InitMessage extends BridgeMessage {
   label: string;
   merchantSlug: string;
   apiBaseUrl: string;
+  dashboardUrl: string;
 }
 
 export interface SetLoadingMessage extends BridgeMessage {
@@ -51,11 +52,14 @@ export interface UserSignedInMessage extends BridgeMessage {
   refreshToken: string;
   expiresAt: string;
   user: AuthUser;
+  requiresProfileCompletion: boolean;
+  wishlistId?: string | null;
 }
 
 export interface ProductAddedMessage extends BridgeMessage {
   type: "PRODUCT_ADDED";
   userId: string;
+  wishlistId?: string;
 }
 
 export interface AddFailedMessage extends BridgeMessage {
@@ -82,10 +86,13 @@ export interface NanatriButtonSignedInDetail {
   refreshToken: string;
   expiresAt: string;
   user: AuthUser;
+  requiresProfileCompletion: boolean;
+  wishlistId?: string | null;
 }
 
 export interface NanatriButtonAddedDetail {
   userId: string;
+  wishlistId?: string;
 }
 
 export interface NanatriButtonFailedDetail {

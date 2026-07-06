@@ -15,7 +15,7 @@
     var explicit = params.get("label");
     if (explicit) return explicit;
     var t = window.__i18n && window.__i18n[lang];
-    return t ? t.addToWishlist : "Add to wishlist";
+    return t ? t.addToWishlist : "Nanatri";
   }
 
   function getProcessingText() {

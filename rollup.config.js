@@ -1,4 +1,5 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: process.env.NODE_ENV === "production" ? ".env.production" : ".env" });
 import replace    from "@rollup/plugin-replace";
 import typescript from "@rollup/plugin-typescript";
 import { nodeResolve } from "@rollup/plugin-node-resolve";

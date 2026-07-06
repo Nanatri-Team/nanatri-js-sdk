@@ -1,6 +1,6 @@
 window.__i18n = window.__i18n || {};
 window.__i18n.en = {
-  addToWishlist:    "Add to wishlist",
+  addToWishlist:    "Nanatri",
   processing:       "Processing…",
   title:            "Welcome back",
   subtitle:         "Enter your phone number to continue",
@@ -14,4 +14,7 @@ window.__i18n.en = {
   or:               "or continue with",
   google:           "Continue with Google",
   facebook:         "Continue with Facebook",
+  successTitle:     "Added to your wishlist!",
+  successSubtitle:  "Share your wishlist so others can help fund it.",
+  viewWishlist:     "View my wishlist",
 };

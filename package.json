@@ -24,7 +24,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "deploy": "NODE_ENV=production rollup -c && rm -rf dist/frames && cp -r frames dist/frames && npx wrangler deploy"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.3",
