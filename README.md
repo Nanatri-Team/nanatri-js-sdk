@@ -36,6 +36,20 @@ import 'nanatri-js-sdk';
 ></nanatri-button>
 ```
 
+### Heart button
+
+An icon-only alternative to `<nanatri-button>` for tight spaces (product cards, image overlays) — same modal and events, just a heart instead of a labeled button. It fills in once the item is added.
+
+```html
+<nanatri-heart-button
+  merchant-id="your_merchant_id"
+  item-id="your_product_id"
+  color="#ef4444"
+  width="40px"
+  height="40px"
+></nanatri-heart-button>
+```
+
 ### Listening to events
 
 ```js
@@ -76,15 +90,20 @@ btn.addEventListener('nanatri-button:closed', () => {
 
 ## Attributes
 
-| Attribute     | Required | Default     | Description                        |
-|---------------|----------|-------------|------------------------------------|
-| `merchant-id` | Yes      | —           | Your Nanatri merchant ID           |
-| `label`       | No       | `"Save"`    | Button label text                  |
-| `color`       | No       | `"#5956E9"` | Button background color            |
-| `text-color`  | No       | `"#ffffff"` | Button text color                  |
-| `width`       | No       | `"200px"`   | Button width                       |
-| `height`      | No       | `"48px"`    | Button height                      |
-| `lang`        | No       | `"en"`      | UI language (`"en"` or `"ka"`)     |
+| Attribute        | Required | Default     | Description                                          |
+|------------------|----------|-------------|-------------------------------------------------------|
+| `merchant-id`    | Yes      | —           | Your Nanatri merchant ID                              |
+| `item-id`        | Yes      | —           | Your external product ID for this item                |
+| `item-title`     | No       | —           | Product title, shown on the add-to-wishlist success screen |
+| `item-image`     | No       | —           | Product image URL, shown on the success screen        |
+| `item-price`     | No       | —           | Product price, shown on the success screen             |
+| `item-currency`  | No       | —           | Currency label shown next to `item-price`               |
+| `label`          | No       | `"Save"`    | Button label text                                     |
+| `color`          | No       | `"#5956E9"` | Button background color                               |
+| `text-color`     | No       | `"#ffffff"` | Button text color                                     |
+| `width`          | No       | `"200px"`   | Button width                                          |
+| `height`         | No       | `"48px"`    | Button height                                         |
+| `lang`           | No       | `"en"`      | UI language (`"en"` or `"ka"`)                        |
 
 ## Events
 

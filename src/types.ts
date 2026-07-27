@@ -22,8 +22,16 @@ export interface InitMessage extends BridgeMessage {
   textColor: string;
   label: string;
   merchantSlug: string;
+  itemId: string;
   apiBaseUrl: string;
   dashboardUrl: string;
+  // Product display info for the form's success screen, sourced from the merchant's own
+  // page rather than fetched — the item's backend snapshot isn't guaranteed to exist yet
+  // (import/enrichment is async on the new-user OTP path).
+  itemTitle?: string;
+  itemImage?: string;
+  itemPrice?: string;
+  itemCurrency?: string;
 }
 
 export interface SetLoadingMessage extends BridgeMessage {
@@ -31,7 +39,14 @@ export interface SetLoadingMessage extends BridgeMessage {
   loading: boolean;
 }
 
-export type OutboundMessage = InitMessage | SetLoadingMessage;
+// Parent → button iframe only (the heart button fills in on success; the labeled button
+// ignores it — it doesn't listen for this message type at all).
+export interface SetAddedMessage extends BridgeMessage {
+  type: "SET_ADDED";
+  added: boolean;
+}
+
+export type OutboundMessage = InitMessage | SetLoadingMessage | SetAddedMessage;
 
 // ── Inbound (iframe → parent) ───────────────────────────────────────────────
 
@@ -53,13 +68,14 @@ export interface UserSignedInMessage extends BridgeMessage {
   expiresAt: string;
   user: AuthUser;
   requiresProfileCompletion: boolean;
-  wishlistId?: string | null;
 }
 
 export interface ProductAddedMessage extends BridgeMessage {
   type: "PRODUCT_ADDED";
   userId: string;
-  wishlistId?: string;
+  // Only present on the silent-add (returning member) path — the new-user OTP path adds
+  // the item asynchronously on the backend, so its id isn't known yet at this point.
+  itemId?: string;
 }
 
 export interface AddFailedMessage extends BridgeMessage {
@@ -72,12 +88,20 @@ export interface ModalClosedMessage extends BridgeMessage {
   type: "MODAL_CLOSED";
 }
 
+// Sent once the form reaches the success screen, which can hold more content (the
+// added-item preview, the recently-added list) than the phone/OTP screens ever need.
+export interface ResizeModalMessage extends BridgeMessage {
+  type: "RESIZE_MODAL";
+  height: number;
+}
+
 export type InboundMessage =
   | ButtonClickedMessage
   | UserSignedInMessage
   | ProductAddedMessage
   | AddFailedMessage
-  | ModalClosedMessage;
+  | ModalClosedMessage
+  | ResizeModalMessage;
 
 // ── Custom-event detail shapes ──────────────────────────────────────────────
 
@@ -87,12 +111,11 @@ export interface NanatriButtonSignedInDetail {
   expiresAt: string;
   user: AuthUser;
   requiresProfileCompletion: boolean;
-  wishlistId?: string | null;
 }
 
 export interface NanatriButtonAddedDetail {
   userId: string;
-  wishlistId?: string;
+  itemId?: string;
 }
 
 export interface NanatriButtonFailedDetail {

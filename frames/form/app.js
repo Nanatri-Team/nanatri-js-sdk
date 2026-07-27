@@ -18,6 +18,14 @@ let apiBaseUrl    = urlParams.get("apiBaseUrl")   || "";
 let merchantSlug  = urlParams.get("merchantSlug") || "";
 let itemId        = urlParams.get("itemId")       || "";
 let dashboardUrl  = urlParams.get("dashboardUrl") || "";
+// Product display info for the success screen — sourced from the merchant's own product
+// page (it's already rendering this exact data next to the "Add to wishlist" button), not
+// fetched from the backend: the item snapshot isn't guaranteed to exist synchronously yet
+// (import/enrichment is async on the new-user OTP path).
+let itemTitle     = urlParams.get("itemTitle")    || "";
+let itemImage     = urlParams.get("itemImage")    || "";
+let itemPrice     = urlParams.get("itemPrice")    || "";
+let itemCurrency  = urlParams.get("itemCurrency") || "";
 
 // ── Stored auth (persists across modal opens so a returning member on the
 //    same site isn't asked for their phone/OTP again) ────────────────────
@@ -79,6 +87,12 @@ const closeBtn        = document.getElementById("close-btn");
 const langBtns        = document.querySelectorAll(".lang-btn");
 const loadingOverlay  = document.getElementById("loading-overlay");
 const viewWishlistLink = document.getElementById("view-wishlist-link");
+const itemPreview      = document.getElementById("item-preview");
+const itemPreviewImage = document.getElementById("item-preview-image");
+const itemPreviewTitle = document.getElementById("item-preview-title");
+const itemPreviewPrice = document.getElementById("item-preview-price");
+const recentItems      = document.getElementById("recent-items");
+const recentItemsList  = document.getElementById("recent-items-list");
 
 // ── i18n ──────────────────────────────────────────────────────────────────
 function t(key) {
@@ -102,6 +116,7 @@ function applyLang() {
   document.getElementById("success-title").textContent    = t("successTitle");
   document.getElementById("success-subtitle").textContent = t("successSubtitle");
   viewWishlistLink.textContent                           = t("viewWishlist");
+  document.getElementById("recent-items-label").textContent = t("recentItems");
 
   langBtns.forEach((b) => {
     b.classList.toggle("active", b.getAttribute("data-lang") === currentLang);
@@ -315,6 +330,75 @@ async function addItemAuthenticated(accessToken) {
   return data;
 }
 
+// ── Recently added (this merchant) ──────────────────────────────────────────
+// Best-effort: a 404 (member has no wishlist with this merchant yet, or a race with the
+// async item-import cascade on a brand-new item) just means nothing to show yet — never
+// blocks or errors the success screen itself.
+async function fetchRecentItems(accessToken) {
+  try {
+    const res = await fetch(apiBaseUrl + "/api/v1/wishlists/" + encodeURIComponent(merchantSlug), {
+      headers: { "Authorization": "Bearer " + accessToken },
+    });
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => null);
+    if (!data || !Array.isArray(data.items)) return [];
+    return data.items
+      .slice()
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
+function renderRecentItems(items) {
+  recentItemsList.innerHTML = "";
+
+  if (!items.length) {
+    recentItems.hidden = true;
+    return;
+  }
+
+  items.forEach((item) => {
+    // A just-added item starts "pending_import" — the product snapshot and funding target
+    // are filled in asynchronously by the backend's import worker, so there's no title/price
+    // to show yet. Show a clear "still preparing" state instead of a raw product id and 0 GEL.
+    const isPending = item.status === "pending_import" || !item.product;
+    const isFailed  = item.status === "import_failed";
+
+    const row = document.createElement("div");
+    row.className = "recent-item-row";
+
+    if (item.product && item.product.imageUrl) {
+      const img = document.createElement("img");
+      img.className = "recent-item-image";
+      img.src = item.product.imageUrl;
+      img.alt = "";
+      row.appendChild(img);
+    }
+
+    const title = document.createElement("span");
+    title.className = "recent-item-title";
+    title.textContent = (item.product && item.product.title) || item.externalProductId;
+    row.appendChild(title);
+
+    const price = document.createElement("span");
+    price.className = "recent-item-price";
+    if (isFailed) {
+      price.textContent = t("itemImportFailed");
+    } else if (isPending) {
+      price.textContent = t("itemImporting");
+    } else if (item.funding && typeof item.funding.target === "number") {
+      price.textContent = item.funding.target.toFixed(0) + " " + item.currency;
+    }
+    if (price.textContent) row.appendChild(price);
+
+    recentItemsList.appendChild(row);
+  });
+
+  recentItems.hidden = false;
+}
+
 // ── Success screen ────────────────────────────────────────────────────────
 function hideLoadingOverlay() {
   loadingOverlay.hidden = true;
@@ -327,16 +411,44 @@ function showSuccess(details) {
       refresh_token: details.refreshToken,
       expires_at:    details.expiresAt,
     };
-    if (details.wishlistId) hashParams.wishlist_id = details.wishlistId;
+    // merchantSlug is known synchronously (from INIT/URL config), independent of the async
+    // item-import cascade, so it's always safe to send. itemId is only known on the
+    // silent-add path, where the backend already returned the created item — passing it
+    // when we have it lands the dashboard on the exact item instead of just the shop page.
+    if (merchantSlug)  hashParams.merchant_slug = merchantSlug;
+    if (details.itemId) hashParams.item_id = details.itemId;
     const query = details.requiresProfileCompletion ? "?requires_profile_completion=true" : "";
     viewWishlistLink.href = dashboardUrl + "/" + query + "#" + new URLSearchParams(hashParams).toString();
     viewWishlistLink.style.display = "inline-flex";
   } else {
     viewWishlistLink.style.display = "none";
   }
+
+  if (itemTitle || itemImage) {
+    itemPreviewTitle.textContent = itemTitle;
+    itemPreviewPrice.textContent = itemPrice ? itemPrice + (itemCurrency ? " " + itemCurrency : "") : "";
+    itemPreviewImage.hidden = !itemImage;
+    if (itemImage) {
+      itemPreviewImage.src = itemImage;
+      itemPreviewImage.alt = itemTitle;
+    }
+    itemPreview.hidden = false;
+  } else {
+    itemPreview.hidden = true;
+  }
+
   hideLoadingOverlay();
   slider.classList.remove("at-otp");
   slider.classList.add("at-success");
+
+  // The success screen can hold more (item preview, recently-added list) than the
+  // phone/OTP screens ever need — ask the parent page to grow the iframe just for this.
+  parent.postMessage({ type: "RESIZE_MODAL", version: "1", height: 600 }, "*");
+
+  recentItems.hidden = true;
+  if (details.accessToken) {
+    fetchRecentItems(details.accessToken).then(renderRecentItems);
+  }
 }
 
 // ── Prefill a known phone number (returning member whose profile isn't
@@ -389,17 +501,24 @@ async function attemptSilentAdd() {
     }
 
     const wishlist = await addItemAuthenticated(tokens.accessToken);
+    // Wishlists carry no id on the wire (a member has at most one live wishlist per
+    // merchant, keyed by merchantSlug) — find the item we just added by its external
+    // product id to get its real (internal) item id for the success-screen deep link.
+    const addedItem = (wishlist.items || []).find((i) => i.externalProductId === itemId);
 
     saveStoredAuth(Object.assign({ user: user, requiresProfileCompletion: false }, tokens));
 
     parent.postMessage({
-      type:       "PRODUCT_ADDED",
-      version:    "1",
-      userId:     user.id,
-      wishlistId: wishlist.id,
+      type:    "PRODUCT_ADDED",
+      version: "1",
+      userId:  user.id,
+      itemId:  addedItem ? addedItem.id : undefined,
     }, "*");
 
-    showSuccess(Object.assign({ wishlistId: wishlist.id, requiresProfileCompletion: false }, tokens));
+    showSuccess(Object.assign(
+      { itemId: addedItem ? addedItem.id : undefined, requiresProfileCompletion: false },
+      tokens,
+    ));
   } catch (err) {
     // Stored session is stale/invalid (expired refresh token, revoked, etc.) —
     // fall back to the normal phone/OTP flow.
@@ -580,6 +699,10 @@ function handleInit(msg) {
     if (msg.merchantSlug) merchantSlug = msg.merchantSlug;
     if (msg.itemId)       itemId       = msg.itemId;
     if (msg.dashboardUrl) dashboardUrl = msg.dashboardUrl;
+    if (msg.itemTitle)    itemTitle    = msg.itemTitle;
+    if (msg.itemImage)    itemImage    = msg.itemImage;
+    if (msg.itemPrice)    itemPrice    = msg.itemPrice;
+    if (msg.itemCurrency) itemCurrency = msg.itemCurrency;
     applyLang();
   }
 

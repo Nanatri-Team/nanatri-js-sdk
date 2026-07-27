@@ -1,6 +1,6 @@
-import { NanatriButtonElement } from "./component";
+import { NanatriButtonElement, NanatriHeartButtonElement } from "./component";
 
-export { NanatriButtonElement };
+export { NanatriButtonElement, NanatriHeartButtonElement };
 export type {
   NanatriButtonAttributes,
   NanatriButtonSignedInDetail,
@@ -11,6 +11,11 @@ export type {
   InboundMessage,
 } from "./types";
 
-if (typeof customElements !== "undefined" && !customElements.get("nanatri-button")) {
-  customElements.define("nanatri-button", NanatriButtonElement);
+if (typeof customElements !== "undefined") {
+  if (!customElements.get("nanatri-button")) {
+    customElements.define("nanatri-button", NanatriButtonElement);
+  }
+  if (!customElements.get("nanatri-heart-button")) {
+    customElements.define("nanatri-heart-button", NanatriHeartButtonElement);
+  }
 }

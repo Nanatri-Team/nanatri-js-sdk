@@ -32,7 +32,7 @@ export function createModal(formSrc: string, sandbox = "allow-scripts allow-same
   formIframe.src = formSrc;
   formIframe.setAttribute("sandbox", sandbox);
   formIframe.setAttribute("title", "Secure Payment Form");
-  formIframe.style.cssText = "width:100%;height:520px;border:none;display:block;";
+  formIframe.style.cssText = "width:100%;height:520px;border:none;display:block;transition:height 0.25s ease;";
 
   container.appendChild(formIframe);
   backdrop.appendChild(container);

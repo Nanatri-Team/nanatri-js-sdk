@@ -17,4 +17,7 @@ window.__i18n.en = {
   successTitle:     "Added to your wishlist!",
   successSubtitle:  "Share your wishlist so others can help fund it.",
   viewWishlist:     "View my wishlist",
+  recentItems:      "Recently added",
+  itemImporting:    "Preparing product details…",
+  itemImportFailed: "Could not import this product",
 };

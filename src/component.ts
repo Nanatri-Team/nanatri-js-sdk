@@ -8,12 +8,15 @@ import type {
   NanatriButtonFailedDetail,
 } from "./types";
 
-const BUTTON_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/button/index.html`;
 const FORM_FRAME_SRC = `${ALLOWED_ORIGIN}/frames/form/index.html`;
 
 const OBSERVED_ATTRIBUTES = [
   "merchant-id",
   "item-id",
+  "item-title",
+  "item-image",
+  "item-price",
+  "item-currency",
   "label",
   "color",
   "text-color",
@@ -22,10 +25,19 @@ const OBSERVED_ATTRIBUTES = [
   "lang",
 ] as const;
 
-export class NanatriButtonElement extends HTMLElement {
+// Shared behavior for every Nanatri button variant — opening the modal, the whole
+// postMessage bridge, INIT/loading/added state. Variants (the labeled button vs. the
+// icon-only heart button) differ only in which small iframe renders the clickable control
+// itself and its default size; each subclass just points at its own frame.
+abstract class NanatriBaseButtonElement extends HTMLElement {
   static get observedAttributes(): readonly string[] {
     return OBSERVED_ATTRIBUTES;
   }
+
+  protected abstract readonly buttonFrameSrc: string;
+  protected abstract readonly defaultWidth: string;
+  protected abstract readonly defaultHeight: string;
+  protected abstract readonly frameTitle: string;
 
   private readonly shadow: ShadowRoot;
   private readonly buttonIframe: HTMLIFrameElement;
@@ -43,7 +55,6 @@ export class NanatriButtonElement extends HTMLElement {
 
     this.buttonIframe = document.createElement("iframe");
     this.buttonIframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
-    this.buttonIframe.setAttribute("title", "Nanatri Button");
     this.buttonIframe.setAttribute("scrolling", "no");
     this.buttonIframe.style.cssText = "border:none;display:block;overflow:hidden;";
 
@@ -63,6 +74,7 @@ export class NanatriButtonElement extends HTMLElement {
         return;
       }
       this.verified = true;
+      this.buttonIframe.setAttribute("title", this.frameTitle);
       this.buttonIframe.style.visibility = "";
       this.updateIframeSrc();
       this.updateIframeSize();
@@ -98,7 +110,7 @@ export class NanatriButtonElement extends HTMLElement {
   private async verifyMerchant(): Promise<boolean> {
     const merchantId = this.attr("merchant-id");
     if (!merchantId) {
-      console.error("[nanatri-js-sdk] merchant-id is a required attribute on <nanatri-button>.");
+      console.error("[nanatri-js-sdk] merchant-id is a required attribute on the Nanatri button element.");
       return false;
     }
 
@@ -123,12 +135,12 @@ export class NanatriButtonElement extends HTMLElement {
       textColor: this.attr("text-color", "#ffffff"),
     });
     if (this.getAttribute("label")) params.set("label", this.attr("label"));
-    this.buttonIframe.src = `${BUTTON_FRAME_SRC}?${params}`;
+    this.buttonIframe.src = `${this.buttonFrameSrc}?${params}`;
   }
 
   private updateIframeSize(): void {
-    const w = this.attr("width", "200px");
-    const h = this.attr("height", "48px");
+    const w = this.attr("width", this.defaultWidth);
+    const h = this.attr("height", this.defaultHeight);
     this.buttonIframe.style.width = w;
     this.buttonIframe.style.height = h;
     this.style.width = w;
@@ -169,7 +181,6 @@ export class NanatriButtonElement extends HTMLElement {
           expiresAt:                 msg.expiresAt as string,
           user:                      msg.user as NanatriButtonSignedInDetail["user"],
           requiresProfileCompletion: (msg.requiresProfileCompletion as boolean) ?? false,
-          wishlistId:                msg.wishlistId as string | null | undefined,
         };
         // The form shows an in-modal confirmation screen instead of us navigating
         // away — stay on the merchant page and leave the modal open.
@@ -179,10 +190,11 @@ export class NanatriButtonElement extends HTMLElement {
 
       case "PRODUCT_ADDED": {
         const detail: NanatriButtonAddedDetail = {
-          userId:     msg.userId as string,
-          wishlistId: msg.wishlistId as string | undefined,
+          userId: msg.userId as string,
+          itemId: msg.itemId as string | undefined,
         };
         this.sendLoadingToForm(false);
+        this.sendAddedToButton(true);
         this.dispatchCustomEvent("nanatri-button:added", detail);
         // Modal stays open showing the form's success screen; it closes when the
         // user dismisses it (MODAL_CLOSED).
@@ -202,6 +214,14 @@ export class NanatriButtonElement extends HTMLElement {
       case "MODAL_CLOSED":
         this.closePaymentModal();
         break;
+
+      case "RESIZE_MODAL": {
+        const height = msg.height as number;
+        if (this.modalElements && typeof height === "number" && height > 0) {
+          this.modalElements.formIframe.style.height = `${height}px`;
+        }
+        break;
+      }
     }
   }
 
@@ -216,6 +236,10 @@ export class NanatriButtonElement extends HTMLElement {
       itemId:       this.attr("item-id"),
       apiBaseUrl:   API_BASE_URL,
       dashboardUrl: DASHBOARD_URL,
+      itemTitle:    this.attr("item-title"),
+      itemImage:    this.attr("item-image"),
+      itemPrice:    this.attr("item-price"),
+      itemCurrency: this.attr("item-currency"),
     });
     const formSrc = `${FORM_FRAME_SRC}?${params}`;
 
@@ -240,6 +264,10 @@ export class NanatriButtonElement extends HTMLElement {
             itemId:       this.attr("item-id"),
             apiBaseUrl:   API_BASE_URL,
             dashboardUrl: DASHBOARD_URL,
+            itemTitle:    this.attr("item-title"),
+            itemImage:    this.attr("item-image"),
+            itemPrice:    this.attr("item-price"),
+            itemCurrency: this.attr("item-currency"),
           });
         }
       },
@@ -265,6 +293,18 @@ export class NanatriButtonElement extends HTMLElement {
     }
   }
 
+  // Lets the button iframe itself react (e.g. the heart button fills in) — harmless no-op
+  // for variants whose frame doesn't listen for SET_ADDED, like the labeled button.
+  private sendAddedToButton(added: boolean): void {
+    if (this.buttonIframe.contentWindow) {
+      sendMessage(this.buttonIframe.contentWindow, {
+        type: "SET_ADDED",
+        version: "1",
+        added,
+      });
+    }
+  }
+
   private dispatchCustomEvent(name: string, detail?: unknown): void {
     this.dispatchEvent(
       new CustomEvent(name, {
@@ -274,4 +314,21 @@ export class NanatriButtonElement extends HTMLElement {
       })
     );
   }
+}
+
+export class NanatriButtonElement extends NanatriBaseButtonElement {
+  protected readonly buttonFrameSrc = `${ALLOWED_ORIGIN}/frames/button/index.html`;
+  protected readonly defaultWidth = "200px";
+  protected readonly defaultHeight = "48px";
+  protected readonly frameTitle = "Nanatri Button";
+}
+
+// Icon-only "add to wishlist" heart, for placements (product cards, image overlays) where a
+// full labeled button doesn't fit. Same modal/flow as <nanatri-button> — see
+// NanatriBaseButtonElement — just a different clickable control.
+export class NanatriHeartButtonElement extends NanatriBaseButtonElement {
+  protected readonly buttonFrameSrc = `${ALLOWED_ORIGIN}/frames/heart-button/index.html`;
+  protected readonly defaultWidth = "40px";
+  protected readonly defaultHeight = "40px";
+  protected readonly frameTitle = "Nanatri Wishlist Heart Button";
 }
