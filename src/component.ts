@@ -85,7 +85,7 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
   disconnectedCallback(): void {
     this.removeMessageListener();
     if (this.isModalOpen && this.modalElements) {
-      closeModal(this.shadow, this.modalElements);
+      closeModal(this.modalElements);
     }
   }
 
@@ -245,7 +245,7 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
 
     this.modalElements = createModal(formSrc, "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox");
 
-    openModal(this.shadow, this.modalElements, () => this.closePaymentModal());
+    openModal(this.modalElements, () => this.closePaymentModal());
 
     this.isModalOpen = true;
     this.dispatchCustomEvent("nanatri-button:opened");
@@ -277,7 +277,7 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
 
   private closePaymentModal(): void {
     if (!this.isModalOpen || !this.modalElements) return;
-    closeModal(this.shadow, this.modalElements);
+    closeModal(this.modalElements);
     this.modalElements = null;
     this.isModalOpen = false;
     this.dispatchCustomEvent("nanatri-button:closed");

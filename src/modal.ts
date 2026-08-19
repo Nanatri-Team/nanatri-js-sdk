@@ -41,12 +41,18 @@ export function createModal(formSrc: string, sandbox = "allow-scripts allow-same
 }
 
 export function openModal(
-  root: ShadowRoot,
   elements: ModalElements,
   onBackdropClick: () => void
 ): void {
-  injectKeyframes(root);
-  root.appendChild(elements.backdrop);
+  injectKeyframes();
+  // Mounted directly on document.body — deliberately NOT inside the button's own shadow
+  // root or any other in-page container. A `position:fixed` element is only positioned
+  // relative to the viewport if no ancestor establishes a containing block for it (which
+  // `transform`/`filter`/`contain`/`will-change` all do), and its z-index only wins against
+  // siblings within its own stacking context. A merchant's page can put either of those on
+  // some ancestor of wherever the widget happens to be embedded — mounting here instead
+  // means neither can ever trap, clip, or reposition the modal.
+  document.body.appendChild(elements.backdrop);
   // Only close when clicking the dark backdrop itself, not the card
   elements.backdrop.addEventListener("click", (e) => {
     if (e.target === elements.backdrop) onBackdropClick();
@@ -54,21 +60,22 @@ export function openModal(
   document.body.style.overflow = "hidden";
 }
 
-export function closeModal(root: ShadowRoot, elements: ModalElements): void {
+export function closeModal(elements: ModalElements): void {
   if (elements.backdrop.isConnected) {
-    root.removeChild(elements.backdrop);
+    elements.backdrop.remove();
   }
   document.body.style.overflow = "";
 }
 
-// Inject once per shadow root
-function injectKeyframes(root: ShadowRoot): void {
-  if (root.querySelector("#nanatri-keyframes")) return;
+// Injected once into the document, not per shadow root — the modal now lives in the light
+// DOM (document.body), so one shared <style> covers every button instance on the page.
+function injectKeyframes(): void {
+  if (document.getElementById("nanatri-keyframes")) return;
   const style = document.createElement("style");
   style.id = "nanatri-keyframes";
   style.textContent = `
     @keyframes nanatri-fade-in { from { opacity:0 } to { opacity:1 } }
     @keyframes nanatri-slide-up { from { transform:translateY(16px);opacity:0 } to { transform:translateY(0);opacity:1 } }
   `;
-  root.insertBefore(style, root.firstChild);
+  document.head.appendChild(style);
 }
