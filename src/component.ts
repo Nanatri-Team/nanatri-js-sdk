@@ -177,7 +177,6 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
       case "USER_SIGNED_IN": {
         const detail: NanatriButtonSignedInDetail = {
           accessToken:               msg.accessToken as string,
-          refreshToken:              msg.refreshToken as string,
           expiresAt:                 msg.expiresAt as string,
           user:                      msg.user as NanatriButtonSignedInDetail["user"],
           requiresProfileCompletion: (msg.requiresProfileCompletion as boolean) ?? false,

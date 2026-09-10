@@ -64,7 +64,6 @@ export interface AuthUser {
 export interface UserSignedInMessage extends BridgeMessage {
   type: "USER_SIGNED_IN";
   accessToken: string;
-  refreshToken: string;
   expiresAt: string;
   user: AuthUser;
   requiresProfileCompletion: boolean;
@@ -107,7 +106,6 @@ export type InboundMessage =
 
 export interface NanatriButtonSignedInDetail {
   accessToken: string;
-  refreshToken: string;
   expiresAt: string;
   user: AuthUser;
   requiresProfileCompletion: boolean;

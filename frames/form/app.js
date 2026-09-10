@@ -27,38 +27,6 @@ let itemImage     = urlParams.get("itemImage")    || "";
 let itemPrice     = urlParams.get("itemPrice")    || "";
 let itemCurrency  = urlParams.get("itemCurrency") || "";
 
-// ── Stored auth (persists across modal opens so a returning member on the
-//    same site isn't asked for their phone/OTP again) ────────────────────
-const AUTH_STORAGE_KEY = "nanatri_auth";
-
-function loadStoredAuth() {
-  try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.accessToken || !parsed.refreshToken) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function saveStoredAuth(auth) {
-  try {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
-  } catch {
-    // storage unavailable (e.g. blocked third-party storage) — skip persistence
-  }
-}
-
-function clearStoredAuth() {
-  try {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-  } catch {
-    // ignore
-  }
-}
-
 // ── State ─────────────────────────────────────────────────────────────────
 let selectedCountry = COUNTRIES.find((c) => c.code === "GE") || COUNTRIES[0];
 let phone           = "";
@@ -272,9 +240,13 @@ function startResendCountdown(seconds) {
 // ── API ───────────────────────────────────────────────────────────────────
 function apiPost(path, body) {
   return fetch(apiBaseUrl + path, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify(body),
+    method:      "POST",
+    headers:     { "Content-Type": "application/json" },
+    body:        JSON.stringify(body),
+    // Only takes effect once this widget is served from a nanatri.com subdomain (same-site
+    // with the API) — a cross-site iframe never gets to set/send the refresh cookie regardless
+    // of this flag. Harmless to send either way, and free forward-compatibility.
+    credentials: "include",
   });
 }
 
@@ -290,43 +262,16 @@ function extractErrorMessage(status, data, fallback) {
 }
 
 async function sendOtp(phoneNumber) {
-  const res  = await apiPost("/api/v1/auth/otp/send", { phoneNumber, merchantSlug });
+  const res  = await apiPost("/api/v1/auth/otp/send-sms", { phoneNumber, merchantSlug });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(extractErrorMessage(res.status, data, "Failed to send code. Please try again."));
   return data;
 }
 
 async function verifyOtp(phoneNumber, code) {
-  const res  = await apiPost("/api/v1/auth/otp/verify", { phoneNumber, code, merchantSlug, itemId });
+  const res  = await apiPost("/api/v1/auth/otp/verify-sms", { phoneNumber, code, merchantSlug, itemId });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(extractErrorMessage(res.status, data, "Invalid or expired code. Please try again."));
-  return data;
-}
-
-async function refreshTokens(refreshToken) {
-  const res  = await apiPost("/api/v1/auth/token/refresh", { refreshToken });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    console.error("[nanatri-sdk] token refresh failed:", res.status, data);
-    throw new Error(extractErrorMessage(res.status, data, "Session expired."));
-  }
-  return data;
-}
-
-async function addItemAuthenticated(accessToken) {
-  const res = await fetch(apiBaseUrl + "/api/v1/wishlists/items", {
-    method:  "POST",
-    headers: {
-      "Content-Type":  "application/json",
-      "Authorization": "Bearer " + accessToken,
-    },
-    body: JSON.stringify({ merchantSlug, itemId }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    console.error("[nanatri-sdk] authenticated add failed:", res.status, data);
-    throw new Error(extractErrorMessage(res.status, data, "Failed to add item to wishlist."));
-  }
   return data;
 }
 
@@ -407,9 +352,8 @@ function hideLoadingOverlay() {
 function showSuccess(details) {
   if (dashboardUrl) {
     const hashParams = {
-      access_token:  details.accessToken,
-      refresh_token: details.refreshToken,
-      expires_at:    details.expiresAt,
+      access_token: details.accessToken,
+      expires_at:   details.expiresAt,
     };
     // merchantSlug is known synchronously (from INIT/URL config), independent of the async
     // item-import cascade, so it's always safe to send. itemId is only known on the
@@ -448,85 +392,6 @@ function showSuccess(details) {
   recentItems.hidden = true;
   if (details.accessToken) {
     fetchRecentItems(details.accessToken).then(renderRecentItems);
-  }
-}
-
-// ── Prefill a known phone number (returning member whose profile isn't
-//    complete yet — we still have to re-verify via OTP, but skip retyping) ──
-function prefillPhone(fullPhone) {
-  if (!fullPhone) return;
-  const match = COUNTRIES
-    .filter((c) => fullPhone.startsWith(c.dial))
-    .sort((a, b) => b.dial.length - a.dial.length)[0];
-  if (match) {
-    selectedCountry = match;
-    phoneNumberInput.value = fullPhone.slice(match.dial.length);
-  } else {
-    phoneNumberInput.value = fullPhone;
-  }
-  updateCountryBtn();
-}
-
-// ── Silent add: reuse a stored session instead of asking for phone/OTP ────
-async function attemptSilentAdd() {
-  const stored = loadStoredAuth();
-
-  if (!stored) {
-    hideLoadingOverlay();
-    phoneNumberInput.focus();
-    return;
-  }
-
-  try {
-    // Always refresh first rather than trusting the cached requiresProfileCompletion
-    // flag — that flag (and the access token's own claim) reflects state as of
-    // sign-in time. If the profile was completed since (e.g. via the dashboard in
-    // another tab), only a fresh token/response reflects that.
-    const refreshed = await refreshTokens(stored.refreshToken);
-    const tokens = {
-      accessToken:  refreshed.accessToken,
-      refreshToken: refreshed.refreshToken,
-      expiresAt:    refreshed.expiresAt,
-    };
-    const user = Object.assign({}, stored.user, refreshed.user);
-    const requiresProfileCompletion = refreshed.requiresProfileCompletion || false;
-
-    saveStoredAuth(Object.assign({ user: user, requiresProfileCompletion: requiresProfileCompletion }, tokens));
-
-    if (requiresProfileCompletion) {
-      prefillPhone(user.phoneNumber);
-      hideLoadingOverlay();
-      phoneNumberInput.focus();
-      return;
-    }
-
-    const wishlist = await addItemAuthenticated(tokens.accessToken);
-    // Wishlists carry no id on the wire (a member has at most one live wishlist per
-    // merchant, keyed by merchantSlug) — find the item we just added by its external
-    // product id to get its real (internal) item id for the success-screen deep link.
-    const addedItem = (wishlist.items || []).find((i) => i.externalProductId === itemId);
-
-    saveStoredAuth(Object.assign({ user: user, requiresProfileCompletion: false }, tokens));
-
-    parent.postMessage({
-      type:    "PRODUCT_ADDED",
-      version: "1",
-      userId:  user.id,
-      itemId:  addedItem ? addedItem.id : undefined,
-    }, "*");
-
-    showSuccess(Object.assign(
-      { itemId: addedItem ? addedItem.id : undefined, requiresProfileCompletion: false },
-      tokens,
-    ));
-  } catch (err) {
-    // Stored session is stale/invalid (expired refresh token, revoked, etc.) —
-    // fall back to the normal phone/OTP flow.
-    console.error("[nanatri-sdk] silent add failed, falling back to phone/OTP:", err);
-    clearStoredAuth();
-    prefillPhone(stored.user && stored.user.phoneNumber);
-    hideLoadingOverlay();
-    phoneNumberInput.focus();
   }
 }
 
@@ -636,19 +501,10 @@ otpSubmit.addEventListener("click", async () => {
   try {
     const result = await verifyOtp(phone, code);
 
-    saveStoredAuth({
-      accessToken:  result.accessToken,
-      refreshToken: result.refreshToken,
-      expiresAt:    result.expiresAt,
-      user:         Object.assign({}, result.user, { phoneNumber: phone }),
-      requiresProfileCompletion: result.requiresProfileCompletion || false,
-    });
-
     parent.postMessage({
       type:                    "USER_SIGNED_IN",
       version:                 "1",
       accessToken:             result.accessToken,
-      refreshToken:            result.refreshToken,
       expiresAt:               result.expiresAt,
       user:                    result.user,
       requiresProfileCompletion: result.requiresProfileCompletion ?? false,
@@ -665,7 +521,6 @@ otpSubmit.addEventListener("click", async () => {
 
     showSuccess({
       accessToken:  result.accessToken,
-      refreshToken: result.refreshToken,
       expiresAt:    result.expiresAt,
       requiresProfileCompletion: result.requiresProfileCompletion || false,
     });
@@ -685,8 +540,7 @@ closeBtn.addEventListener("click", () => {
 // ── INIT message from parent ──────────────────────────────────────────────
 // apiBaseUrl/merchantSlug/itemId/dashboardUrl read from the URL above are a
 // dev-only fallback — the authoritative values arrive here, from component.ts,
-// shortly after load. attemptSilentAdd() talks to the API, so it must wait for
-// this rather than racing ahead with (possibly wrong/empty) URL-derived config.
+// shortly after load.
 let initHandled = false;
 
 function handleInit(msg) {
@@ -706,7 +560,8 @@ function handleInit(msg) {
     applyLang();
   }
 
-  attemptSilentAdd();
+  hideLoadingOverlay();
+  phoneNumberInput.focus();
 }
 
 window.addEventListener("message", (event) => {

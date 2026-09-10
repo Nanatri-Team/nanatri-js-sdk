@@ -1,6 +1,7 @@
 import { NanatriButtonElement, NanatriHeartButtonElement } from "./component";
+import { NanatriDashboardButtonElement } from "./dashboardButton";
 
-export { NanatriButtonElement, NanatriHeartButtonElement };
+export { NanatriButtonElement, NanatriHeartButtonElement, NanatriDashboardButtonElement };
 export type {
   NanatriButtonAttributes,
   NanatriButtonSignedInDetail,
@@ -17,5 +18,8 @@ if (typeof customElements !== "undefined") {
   }
   if (!customElements.get("nanatri-heart-button")) {
     customElements.define("nanatri-heart-button", NanatriHeartButtonElement);
+  }
+  if (!customElements.get("nanatri-dashboard-button")) {
+    customElements.define("nanatri-dashboard-button", NanatriDashboardButtonElement);
   }
 }
