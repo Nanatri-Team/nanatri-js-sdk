@@ -19,13 +19,13 @@
     "frames"
   ],
   "scripts": {
-    "dev": "npm run build && cp test-local.html dist/ && npx serve -l 3000 dist",
-    "build": "rollup -c && rm -rf dist/frames && cp -r frames dist/frames",
+    "dev": "npm run build && cp test-local.html dist/ && npx serve -l 5174 --ssl-cert .cert/localhost.pem --ssl-key .cert/localhost-key.pem dist",
+    "build": "rollup -c && node scripts/copy-frames.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build",
-    "deploy": "NODE_ENV=production rollup -c && rm -rf dist/frames && cp -r frames dist/frames && npx wrangler deploy"
+    "deploy": "NODE_ENV=production rollup -c && NODE_ENV=production node scripts/copy-frames.mjs && npx wrangler deploy"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.3",
@@ -40,8 +40,5 @@
     "tslib": "^2.6.3",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
-  },
-  "dependencies": {
-    "country-codes-list": "^2.0.0"
   }
 }

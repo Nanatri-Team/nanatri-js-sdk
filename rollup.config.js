@@ -7,7 +7,7 @@ import commonjs   from "@rollup/plugin-commonjs";
 import terser     from "@rollup/plugin-terser";
 
 const apiBaseUrl    = process.env.NANATRI_API_BASE_URL    || "";
-const sdkOrigin     = process.env.NANATRI_SDK_ORIGIN     || "https://nanatri-js-sdk.georgemaevsky.workers.dev";
+const sdkOrigin     = process.env.NANATRI_SDK_ORIGIN     || "https://js-widget.nanatri.com";
 const dashboardUrl  = process.env.NANATRI_DASHBOARD_URL  || "";
 
 if (!apiBaseUrl)   console.warn("[nanatri-sdk] NANATRI_API_BASE_URL is not set in .env — API calls will fail at runtime.");
@@ -32,6 +32,13 @@ function makeSdkPlugins(minify = false) {
 
 // ── Form frame bundle (plain JS + npm deps) ───────────────────────────────
 const formPlugins = [
+  replace({
+    preventAssignment: true,
+    values: {
+      __API_BASE_URL__:  JSON.stringify(apiBaseUrl),
+      __DASHBOARD_URL__: JSON.stringify(dashboardUrl),
+    },
+  }),
   nodeResolve({ browser: true }),
   commonjs(),
   terser(),

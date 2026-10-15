@@ -35,7 +35,13 @@
   // ── Events ─────────────────────────────────────────────────────────────────
 
   btn.addEventListener("click", function () {
-    parent.postMessage({ type: "BUTTON_CLICKED", version: "1" }, "*");
+    window.NanatriAuth.handleClick({
+      merchantSlug: params.get("merchantSlug") || "",
+      itemId:       params.get("itemId") || "",
+      lang:         lang,
+    }, function () {
+      parent.postMessage({ type: "BUTTON_CLICKED", version: "1" }, "*");
+    });
   });
 
   window.addEventListener("message", function (event) {

@@ -76,21 +76,17 @@ html, body {
 
 .slider {
   display: flex;
-  width: 300%;
+  width: 200%;
   height: 100%;
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.slider.at-otp {
-  transform: translateX(-33.3333%);
-}
-
 .slider.at-success {
-  transform: translateX(-66.6666%);
+  transform: translateX(-50%);
 }
 
 .slide {
-  width: 33.3333%;
+  width: 50%;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -331,6 +327,15 @@ html, body {
   transition: background 0.15s, transform 0.1s;
 }
 .btn-primary--bottom { margin-top: auto; }
+
+#view-wishlist-link {
+  display: none;
+  text-decoration: none;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  padding: 0 24px;
+}
 .btn-primary:hover { background: var(--c-primary-dark); transform: translateY(-1px); }
 .btn-primary:active { transform: translateY(0); }
 
@@ -624,3 +629,28 @@ html, body {
   color: var(--c-text-muted);
   flex-shrink: 0;
 }
+
+/* ── Sign-in screen ── */
+.auth-waiting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 16px;
+  color: var(--c-text-muted, #6b7280);
+  font-size: 14px;
+}
+.auth-waiting[hidden],
+#sign-in-btn[hidden] { display: none; }
+
+.link-btn {
+  margin-top: 12px;
+  background: none;
+  border: none;
+  padding: 4px;
+  color: var(--c-text-muted, #6b7280);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-btn:hover { opacity: 0.75; }

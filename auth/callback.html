@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- The auth host redirects the sign-in popup here with ?code&state. Must never be served with
+       Cross-Origin-Opener-Policy: same-origin, or window.opener is cut and the code can't get back. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; base-uri 'none'; object-src 'none'" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Nanatri</title>
+</head>
+<body>
+  <script src="/auth/callback.js"></script>
+</body>
+</html>

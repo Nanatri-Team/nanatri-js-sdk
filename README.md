@@ -7,7 +7,7 @@ Embeddable wishlist button as a Web Component. Drop it into any HTML page with a
 ### CDN (recommended)
 
 ```html
-<script src="https://nanatri-js-sdk.georgemaevsky.workers.dev/sdk.js"></script>
+<script src="https://js-widget.nanatri.com/sdk.js"></script>
 ```
 
 ### npm

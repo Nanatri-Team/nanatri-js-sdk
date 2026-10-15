@@ -1,59 +1,40 @@
-import { all as allCountries } from "country-codes-list";
+// The widget's modal. Sign-in itself happens in a popup on the Nanatri auth host, started by the
+// button frame's click (frames/shared/auth.js); this frame waits for it, adds the item with the
+// access token, and shows the result.
 
-// ── Countries ─────────────────────────────────────────────────────────────
-const COUNTRIES = allCountries()
-  .filter((c) => c.countryCallingCode)
-  .map((c) => ({
-    code: c.countryCode,
-    dial: "+" + c.countryCallingCode,
-    name: c.countryNameEn,
-    flag: c.flag,
-  }))
-  .sort((a, b) => a.name.localeCompare(b.name));
+// ── Config ────────────────────────────────────────────────────────────────
+// Where member data is sent is fixed at build time (.env / .env.production). Never read it from
+// the URL or the INIT message: both come from the merchant's page.
+const apiBaseUrl   = __API_BASE_URL__;
+const dashboardUrl = __DASHBOARD_URL__;
 
-// ── Config: URL params first (dev), overridden by INIT message ───────────
+const auth = window.NanatriAuth;
+
+// URL params first (dev), overridden by INIT message
 const urlParams   = new URLSearchParams(window.location.search);
 let currentLang   = urlParams.get("lang")         || "en";
-let apiBaseUrl    = urlParams.get("apiBaseUrl")   || "";
 let merchantSlug  = urlParams.get("merchantSlug") || "";
 let itemId        = urlParams.get("itemId")       || "";
-let dashboardUrl  = urlParams.get("dashboardUrl") || "";
-// Product display info for the success screen — sourced from the merchant's own product
-// page (it's already rendering this exact data next to the "Add to wishlist" button), not
-// fetched from the backend: the item snapshot isn't guaranteed to exist synchronously yet
-// (import/enrichment is async on the new-user OTP path).
+// Product display info for the success screen, sourced from the merchant's own product page
+// rather than fetched: the backend imports the product snapshot asynchronously.
 let itemTitle     = urlParams.get("itemTitle")    || "";
 let itemImage     = urlParams.get("itemImage")    || "";
 let itemPrice     = urlParams.get("itemPrice")    || "";
 let itemCurrency  = urlParams.get("itemCurrency") || "";
 
 // ── State ─────────────────────────────────────────────────────────────────
-let selectedCountry = COUNTRIES.find((c) => c.code === "GE") || COUNTRIES[0];
-let phone           = "";
-let resendInterval  = null;
-let dropdownOpen    = false;
+let adding = false;
+let added  = false;
 
 // ── DOM refs ──────────────────────────────────────────────────────────────
-const slider          = document.getElementById("slider");
-const countryBtn      = document.getElementById("country-btn");
-const countryFlagEl   = document.getElementById("country-flag");
-const countryDialEl   = document.getElementById("country-dial");
-const countryDropdown = document.getElementById("country-dropdown");
-const countrySearch   = document.getElementById("country-search");
-const countryList     = document.getElementById("country-list");
-const phoneField      = document.getElementById("phone-field");
-const phoneNumberInput = document.getElementById("phone-number-input");
-const phoneSubmit     = document.getElementById("phone-submit");
-const errPhone        = document.getElementById("err-phone");
-const phoneDisplay    = document.getElementById("phone-display");
-const backBtn         = document.getElementById("back-btn");
-const otpBoxes        = Array.from(document.querySelectorAll(".otp-box"));
-const otpSubmit       = document.getElementById("otp-submit");
-const errOtp          = document.getElementById("err-otp");
-const resendBtn       = document.getElementById("resend-btn");
-const closeBtn        = document.getElementById("close-btn");
-const langBtns        = document.querySelectorAll(".lang-btn");
-const loadingOverlay  = document.getElementById("loading-overlay");
+const slider           = document.getElementById("slider");
+const authWaiting      = document.getElementById("auth-waiting");
+const errAuth          = document.getElementById("err-auth");
+const signInBtn        = document.getElementById("sign-in-btn");
+const notYouBtn        = document.getElementById("not-you-btn");
+const closeBtn         = document.getElementById("close-btn");
+const langBtns         = document.querySelectorAll(".lang-btn");
+const loadingOverlay   = document.getElementById("loading-overlay");
 const viewWishlistLink = document.getElementById("view-wishlist-link");
 const itemPreview      = document.getElementById("item-preview");
 const itemPreviewImage = document.getElementById("item-preview-image");
@@ -69,21 +50,14 @@ function t(key) {
 }
 
 function applyLang() {
-  document.getElementById("screen-title").textContent    = t("title");
-  document.getElementById("screen-subtitle").textContent = t("subtitle");
-  document.getElementById("phone-label").textContent     = t("phoneLabel");
-  phoneNumberInput.placeholder                           = t("phonePlaceholder") || "599 000 000";
-  phoneSubmit.textContent                                = t("continue");
-  document.getElementById("or-text").textContent         = t("or");
-  document.getElementById("google-label").textContent    = t("google");
-  document.getElementById("facebook-label").textContent  = t("facebook");
-  document.getElementById("otp-title").textContent       = t("otpTitle");
-  document.getElementById("sent-to-text").textContent    = t("otpSentTo");
-  otpSubmit.textContent                                  = t("verify");
-  backBtn.textContent                                    = "← " + t("back");
-  document.getElementById("success-title").textContent    = t("successTitle");
-  document.getElementById("success-subtitle").textContent = t("successSubtitle");
-  viewWishlistLink.textContent                           = t("viewWishlist");
+  document.getElementById("auth-title").textContent        = t("signInTitle");
+  document.getElementById("auth-subtitle").textContent     = t("signInSubtitle");
+  document.getElementById("auth-waiting-text").textContent = t("signInWaiting");
+  signInBtn.textContent                                    = t("signInContinue");
+  notYouBtn.textContent                                    = t("notYou");
+  document.getElementById("success-title").textContent     = t("successTitle");
+  document.getElementById("success-subtitle").textContent  = t("successSubtitle");
+  viewWishlistLink.textContent                             = t("viewWishlist");
   document.getElementById("recent-items-label").textContent = t("recentItems");
 
   langBtns.forEach((b) => {
@@ -98,202 +72,105 @@ langBtns.forEach((btn) => {
   });
 });
 
-// ── Country selector ──────────────────────────────────────────────────────
-function updateCountryBtn() {
-  countryFlagEl.textContent = selectedCountry.flag;
-  countryDialEl.textContent = selectedCountry.dial;
+// ── Sign-in screen states ─────────────────────────────────────────────────
+function hideLoadingOverlay() {
+  loadingOverlay.hidden = true;
 }
 
-function renderCountryList(query) {
-  const q = (query || "").trim().toLowerCase();
-  const filtered = q
-    ? COUNTRIES.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.dial.includes(q) ||
-          c.code.toLowerCase() === q
-      )
-    : COUNTRIES;
-
-  countryList.innerHTML = "";
-  filtered.forEach((country) => {
-    const li = document.createElement("li");
-    li.className = "country-item" + (country.code === selectedCountry.code ? " selected" : "");
-    li.setAttribute("role", "option");
-    li.setAttribute("aria-selected", country.code === selectedCountry.code ? "true" : "false");
-    li.innerHTML =
-      '<span class="country-item-flag">' + country.flag + "</span>" +
-      '<span class="country-item-name">' + country.name + "</span>" +
-      '<span class="country-item-dial">' + country.dial + "</span>";
-    li.addEventListener("click", () => selectCountry(country));
-    countryList.appendChild(li);
-  });
+function showWaiting() {
+  hideLoadingOverlay();
+  errAuth.classList.remove("visible");
+  authWaiting.hidden = false;
+  signInBtn.hidden   = true;
 }
 
-function openDropdown() {
-  dropdownOpen = true;
-  countryDropdown.hidden = false;
-  countryBtn.setAttribute("aria-expanded", "true");
-  countrySearch.value = "";
-  renderCountryList("");
-  requestAnimationFrame(() => {
-    countrySearch.focus();
-    const sel = countryList.querySelector(".selected");
-    if (sel) sel.scrollIntoView({ block: "nearest" });
-  });
-}
-
-function closeDropdown() {
-  dropdownOpen = false;
-  countryDropdown.hidden = true;
-  countryBtn.setAttribute("aria-expanded", "false");
-}
-
-function selectCountry(country) {
-  selectedCountry = country;
-  updateCountryBtn();
-  closeDropdown();
-  phoneNumberInput.focus();
-}
-
-countryBtn.addEventListener("click", () => {
-  dropdownOpen ? closeDropdown() : openDropdown();
-});
-
-countrySearch.addEventListener("input", () => {
-  renderCountryList(countrySearch.value);
-});
-
-// Close dropdown on outside click
-document.addEventListener("click", (e) => {
-  if (dropdownOpen && phoneField && !phoneField.contains(e.target)) {
-    closeDropdown();
+// Shown when this frame must start sign-in itself: no session and no popup open (e.g. the token
+// expired). The popup needs a click inside this frame.
+function showSignInPrompt(errorMessage) {
+  hideLoadingOverlay();
+  authWaiting.hidden = true;
+  signInBtn.hidden   = false;
+  if (errorMessage) {
+    errAuth.textContent = errorMessage;
+    errAuth.classList.add("visible");
+  } else {
+    errAuth.classList.remove("visible");
   }
-});
+}
 
-// Keyboard navigation in dropdown
-countrySearch.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") { closeDropdown(); phoneNumberInput.focus(); }
-  if (e.key === "Enter") {
-    const first = countryList.querySelector(".country-item");
-    if (first) first.click();
+function startSignInFromHere(prompt) {
+  const opened = auth.startSignIn({ merchantSlug, lang: currentLang, prompt });
+  if (opened) {
+    showWaiting();
+  } else {
+    // Popup blocked: hand over to the dashboard's /add page.
+    auth.redirectToAdd(merchantSlug, itemId);
   }
+}
+
+signInBtn.addEventListener("click", () => startSignInFromHere());
+
+// "Not you?": forget this person on every button of the page and sign in someone else.
+notYouBtn.addEventListener("click", () => {
+  auth.clear();
+  added = false;
+  slider.classList.remove("at-success");
+  startSignInFromHere("login");
 });
 
-// ── Phone assembly & validation ────────────────────────────────────────────
-function getFullPhone() {
-  const local = phoneNumberInput.value.replace(/[\s\-()]/g, "").replace(/^\+/, "");
-  return selectedCountry.dial + local;
+// ── Adding the item ───────────────────────────────────────────────────────
+function errorMessageFor(status, data) {
+  if (data && data.code === "Wishlist.LimitReached") return t("errLimitReached");
+  if (status === 404) return t("errNotFound");
+  if (status === 429) return t("errTooMany");
+  return t("errGeneric");
 }
 
-function isValidE164(val) {
-  return /^\+[1-9]\d{6,14}$/.test(val);
-}
+async function addItem(session) {
+  if (adding || added) return;
+  adding = true;
+  showWaiting();
 
-// ── Loading states ─────────────────────────────────────────────────────────
-function setPhoneLoading(loading) {
-  phoneNumberInput.disabled = loading;
-  countryBtn.disabled       = loading;
-  phoneSubmit.disabled      = loading;
-  phoneSubmit.textContent   = loading ? "..." : t("continue");
-}
-
-function setOtpLoading(loading) {
-  otpBoxes.forEach((b) => { b.disabled = loading; });
-  otpSubmit.disabled    = loading;
-  resendBtn.disabled    = loading;
-  otpSubmit.textContent = loading ? "..." : t("verify");
-}
-
-// ── Error helpers ─────────────────────────────────────────────────────────
-function showPhoneError(msg) {
-  errPhone.textContent = msg;
-  errPhone.classList.add("visible");
-}
-function hidePhoneError() { errPhone.classList.remove("visible"); }
-
-function showOtpError(msg) {
-  errOtp.textContent = msg;
-  errOtp.classList.add("visible");
-}
-function hideOtpError() { errOtp.classList.remove("visible"); }
-
-// ── Resend countdown ──────────────────────────────────────────────────────
-function startResendCountdown(seconds) {
-  clearInterval(resendInterval);
-  let remaining = seconds;
-  resendBtn.disabled    = true;
-  resendBtn.textContent = "Resend in " + remaining + "s";
-
-  resendInterval = setInterval(() => {
-    remaining--;
-    if (remaining <= 0) {
-      clearInterval(resendInterval);
-      resendBtn.disabled    = false;
-      resendBtn.textContent = "Resend code";
-    } else {
-      resendBtn.textContent = "Resend in " + remaining + "s";
-    }
-  }, 1000);
-}
-
-// ── API ───────────────────────────────────────────────────────────────────
-function apiPost(path, body) {
-  return fetch(apiBaseUrl + path, {
-    method:      "POST",
-    headers:     { "Content-Type": "application/json" },
-    body:        JSON.stringify(body),
-    // Only takes effect once this widget is served from a nanatri.com subdomain (same-site
-    // with the API) — a cross-site iframe never gets to set/send the refresh cookie regardless
-    // of this flag. Harmless to send either way, and free forward-compatibility.
-    credentials: "include",
-  });
-}
-
-function extractErrorMessage(status, data, fallback) {
-  if (status === 429) return "Too many attempts. Please wait and try again.";
-  if (status === 423) return "This account is temporarily locked.";
-  if (status === 503) return "SMS service unavailable. Please try again later.";
-  if (status === 404) return "Merchant not found. Please check your integration.";
-  if (status === 403) return "This merchant is currently unavailable.";
-  if (data && data.detail)       return data.detail;
-  if (data && data.description)  return data.description;
-  return fallback;
-}
-
-async function sendOtp(phoneNumber) {
-  const res  = await apiPost("/api/v1/auth/otp/send-sms", { phoneNumber, merchantSlug });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(extractErrorMessage(res.status, data, "Failed to send code. Please try again."));
-  return data;
-}
-
-async function verifyOtp(phoneNumber, code) {
-  const res  = await apiPost("/api/v1/auth/otp/verify-sms", { phoneNumber, code, merchantSlug, itemId });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(extractErrorMessage(res.status, data, "Invalid or expired code. Please try again."));
-  return data;
-}
-
-// ── Recently added (this merchant) ──────────────────────────────────────────
-// Best-effort: a 404 (member has no wishlist with this merchant yet, or a race with the
-// async item-import cascade on a brand-new item) just means nothing to show yet — never
-// blocks or errors the success screen itself.
-async function fetchRecentItems(accessToken) {
   try {
-    const res = await fetch(apiBaseUrl + "/api/v1/wishlists/" + encodeURIComponent(merchantSlug), {
-      headers: { "Authorization": "Bearer " + accessToken },
+    const res = await fetch(apiBaseUrl + "/api/v1/wishlists/items", {
+      method:  "POST",
+      headers: {
+        "Content-Type":  "application/json",
+        "Authorization": "Bearer " + session.accessToken,
+      },
+      body: JSON.stringify({ merchantSlug, itemId }),
     });
-    if (!res.ok) return [];
     const data = await res.json().catch(() => null);
-    if (!data || !Array.isArray(data.items)) return [];
-    return data.items
-      .slice()
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 10);
+
+    if (res.status === 401) {
+      // The token expired or was revoked: sign in again on the next click.
+      auth.clear();
+      showSignInPrompt();
+      return;
+    }
+    if (!res.ok) {
+      const message = errorMessageFor(res.status, data);
+      parent.postMessage({ type: "ADD_FAILED", version: "1", error: message, code: (data && data.code) || String(res.status) }, "*");
+      showSignInPrompt(message);
+      return;
+    }
+
+    added = true;
+    const items = sortedItems(data);
+    const addedItem = items.find((item) => item.externalProductId === itemId);
+    parent.postMessage({ type: "PRODUCT_ADDED", version: "1", userId: session.userId }, "*");
+    showSuccess(addedItem ? addedItem.id : null, items);
   } catch {
-    return [];
+    showSignInPrompt(t("errGeneric"));
+  } finally {
+    adding = false;
   }
+}
+
+// ── Success screen ────────────────────────────────────────────────────────
+function sortedItems(wishlist) {
+  if (!wishlist || !Array.isArray(wishlist.items)) return [];
+  return wishlist.items.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
 function renderRecentItems(items) {
@@ -304,10 +181,9 @@ function renderRecentItems(items) {
     return;
   }
 
-  items.forEach((item) => {
-    // A just-added item starts "pending_import" — the product snapshot and funding target
-    // are filled in asynchronously by the backend's import worker, so there's no title/price
-    // to show yet. Show a clear "still preparing" state instead of a raw product id and 0 GEL.
+  items.slice(0, 10).forEach((item) => {
+    // A just-added item starts "pending_import": the backend fills in the product snapshot and
+    // funding target asynchronously, so there's no title or price to show yet.
     const isPending = item.status === "pending_import" || !item.product;
     const isFailed  = item.status === "import_failed";
 
@@ -344,25 +220,13 @@ function renderRecentItems(items) {
   recentItems.hidden = false;
 }
 
-// ── Success screen ────────────────────────────────────────────────────────
-function hideLoadingOverlay() {
-  loadingOverlay.hidden = true;
-}
-
-function showSuccess(details) {
+function showSuccess(wishlistItemId, items) {
+  // A plain link: the dashboard signs the member in through its own session, so no token is
+  // ever put in the URL.
   if (dashboardUrl) {
-    const hashParams = {
-      access_token: details.accessToken,
-      expires_at:   details.expiresAt,
-    };
-    // merchantSlug is known synchronously (from INIT/URL config), independent of the async
-    // item-import cascade, so it's always safe to send. itemId is only known on the
-    // silent-add path, where the backend already returned the created item — passing it
-    // when we have it lands the dashboard on the exact item instead of just the shop page.
-    if (merchantSlug)  hashParams.merchant_slug = merchantSlug;
-    if (details.itemId) hashParams.item_id = details.itemId;
-    const query = details.requiresProfileCompletion ? "?requires_profile_completion=true" : "";
-    viewWishlistLink.href = dashboardUrl + "/" + query + "#" + new URLSearchParams(hashParams).toString();
+    viewWishlistLink.href = wishlistItemId
+      ? dashboardUrl + "/wishlists/" + encodeURIComponent(merchantSlug) + "/" + encodeURIComponent(wishlistItemId)
+      : dashboardUrl + "/";
     viewWishlistLink.style.display = "inline-flex";
   } else {
     viewWishlistLink.style.display = "none";
@@ -381,156 +245,45 @@ function showSuccess(details) {
     itemPreview.hidden = true;
   }
 
+  renderRecentItems(items);
   hideLoadingOverlay();
-  slider.classList.remove("at-otp");
   slider.classList.add("at-success");
 
-  // The success screen can hold more (item preview, recently-added list) than the
-  // phone/OTP screens ever need — ask the parent page to grow the iframe just for this.
+  // The success screen holds more (item preview, recently-added list) than the sign-in screen;
+  // ask the parent page to grow the iframe just for this.
   parent.postMessage({ type: "RESIZE_MODAL", version: "1", height: 600 }, "*");
-
-  recentItems.hidden = true;
-  if (details.accessToken) {
-    fetchRecentItems(details.accessToken).then(renderRecentItems);
-  }
 }
 
-// ── Phone submit ──────────────────────────────────────────────────────────
-phoneSubmit.addEventListener("click", async () => {
-  closeDropdown();
-  const fullPhone = getFullPhone();
+// ── Sign-in outcomes from any of our frames ───────────────────────────────
+auth.onSession((session) => {
+  if (session && !added) addItem(session);
+});
 
-  if (!isValidE164(fullPhone)) {
-    showPhoneError("Enter a valid phone number (e.g. 599 000 000)");
-    phoneNumberInput.focus();
+auth.onSignInEnded((outcome) => {
+  if (added || auth.getSession()) return;
+  if (outcome === "cancelled") {
+    // The member closed the popup: close the modal and show the button again, no error.
+    parent.postMessage({ type: "MODAL_CLOSED", version: "1" }, "*");
+  } else if (outcome === "error") {
+    showSignInPrompt(t("errSignIn"));
+  }
+});
+
+async function start() {
+  const session = auth.getSession();
+  if (session) {
+    addItem(session);
     return;
   }
-  hidePhoneError();
-  setPhoneLoading(true);
-
-  try {
-    await sendOtp(fullPhone);
-    phone = fullPhone;
-    phoneDisplay.textContent = phone;
-    slider.classList.add("at-otp");
-    startResendCountdown(30);
-    setTimeout(() => { if (otpBoxes[0]) otpBoxes[0].focus(); }, 360);
-  } catch (err) {
-    showPhoneError(err.message);
-  } finally {
-    setPhoneLoading(false);
+  const state = await auth.query(300);
+  if (state === "session") {
+    addItem(auth.getSession());
+  } else if (state === "pending") {
+    showWaiting();
+  } else {
+    showSignInPrompt();
   }
-});
-
-phoneNumberInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") phoneSubmit.click();
-});
-
-phoneNumberInput.addEventListener("input", () => {
-  if (errPhone.classList.contains("visible")) hidePhoneError();
-});
-
-// ── Back button ───────────────────────────────────────────────────────────
-backBtn.addEventListener("click", () => {
-  slider.classList.remove("at-otp");
-  otpBoxes.forEach((b) => { b.value = ""; b.classList.remove("filled"); });
-  clearInterval(resendInterval);
-  hideOtpError();
-  setTimeout(() => { phoneNumberInput.focus(); }, 360);
-});
-
-// ── Resend ────────────────────────────────────────────────────────────────
-resendBtn.addEventListener("click", async () => {
-  if (!phone) return;
-  hideOtpError();
-  resendBtn.disabled = true;
-
-  try {
-    await sendOtp(phone);
-    otpBoxes.forEach((b) => { b.value = ""; b.classList.remove("filled"); });
-    if (otpBoxes[0]) otpBoxes[0].focus();
-    startResendCountdown(30);
-  } catch (err) {
-    showOtpError(err.message);
-    resendBtn.disabled = false;
-  }
-});
-
-// ── OTP boxes ─────────────────────────────────────────────────────────────
-otpBoxes.forEach((box, i) => {
-  box.addEventListener("input", () => {
-    const digit = box.value.replace(/\D/g, "");
-    box.value = digit.slice(-1);
-    box.classList.toggle("filled", box.value !== "");
-    hideOtpError();
-    if (box.value && i < otpBoxes.length - 1) otpBoxes[i + 1].focus();
-  });
-
-  box.addEventListener("keydown", (e) => {
-    if (e.key === "Backspace" && !box.value && i > 0) {
-      otpBoxes[i - 1].value = "";
-      otpBoxes[i - 1].classList.remove("filled");
-      otpBoxes[i - 1].focus();
-    }
-    if (e.key === "Enter") otpSubmit.click();
-  });
-
-  box.addEventListener("paste", (e) => {
-    e.preventDefault();
-    const pasted = (e.clipboardData?.getData("text") ?? "").replace(/\D/g, "");
-    pasted.slice(0, otpBoxes.length).split("").forEach((ch, j) => {
-      if (otpBoxes[i + j]) {
-        otpBoxes[i + j].value = ch;
-        otpBoxes[i + j].classList.add("filled");
-      }
-    });
-    otpBoxes[Math.min(i + pasted.length, otpBoxes.length - 1)].focus();
-  });
-});
-
-// ── OTP submit ────────────────────────────────────────────────────────────
-otpSubmit.addEventListener("click", async () => {
-  const code = otpBoxes.map((b) => b.value).join("");
-  if (code.length < otpBoxes.length) {
-    if (otpBoxes[code.length]) otpBoxes[code.length].focus();
-    return;
-  }
-  hideOtpError();
-  setOtpLoading(true);
-
-  try {
-    const result = await verifyOtp(phone, code);
-
-    parent.postMessage({
-      type:                    "USER_SIGNED_IN",
-      version:                 "1",
-      accessToken:             result.accessToken,
-      expiresAt:               result.expiresAt,
-      user:                    result.user,
-      requiresProfileCompletion: result.requiresProfileCompletion ?? false,
-    }, "*");
-
-    // The item add itself is cascaded asynchronously on the backend from this
-    // same OTP-verify call, so we don't have a wishlistId yet — but it's safe
-    // to confirm optimistically.
-    parent.postMessage({
-      type:    "PRODUCT_ADDED",
-      version: "1",
-      userId:  result.user.id,
-    }, "*");
-
-    showSuccess({
-      accessToken:  result.accessToken,
-      expiresAt:    result.expiresAt,
-      requiresProfileCompletion: result.requiresProfileCompletion || false,
-    });
-  } catch (err) {
-    showOtpError(err.message);
-    otpBoxes.forEach((b) => { b.value = ""; b.classList.remove("filled"); });
-    if (otpBoxes[0]) otpBoxes[0].focus();
-    setOtpLoading(false);
-  }
-});
+}
 
 // ── Close button ──────────────────────────────────────────────────────────
 closeBtn.addEventListener("click", () => {
@@ -538,9 +291,8 @@ closeBtn.addEventListener("click", () => {
 });
 
 // ── INIT message from parent ──────────────────────────────────────────────
-// apiBaseUrl/merchantSlug/itemId/dashboardUrl read from the URL above are a
-// dev-only fallback — the authoritative values arrive here, from component.ts,
-// shortly after load.
+// merchantSlug/itemId read from the URL above are a dev-only fallback; the authoritative values
+// arrive here, from component.ts, shortly after load.
 let initHandled = false;
 
 function handleInit(msg) {
@@ -549,10 +301,8 @@ function handleInit(msg) {
 
   if (msg) {
     if (msg.lang)         currentLang  = msg.lang;
-    if (msg.apiBaseUrl)   apiBaseUrl   = msg.apiBaseUrl;
     if (msg.merchantSlug) merchantSlug = msg.merchantSlug;
     if (msg.itemId)       itemId       = msg.itemId;
-    if (msg.dashboardUrl) dashboardUrl = msg.dashboardUrl;
     if (msg.itemTitle)    itemTitle    = msg.itemTitle;
     if (msg.itemImage)    itemImage    = msg.itemImage;
     if (msg.itemPrice)    itemPrice    = msg.itemPrice;
@@ -560,8 +310,7 @@ function handleInit(msg) {
     applyLang();
   }
 
-  hideLoadingOverlay();
-  phoneNumberInput.focus();
+  start();
 }
 
 window.addEventListener("message", (event) => {
@@ -575,8 +324,7 @@ window.addEventListener("message", (event) => {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────
-updateCountryBtn();
 applyLang();
-// Fallback for standalone/dev use where no parent ever sends INIT (proceeds
-// with whatever the URL query string provided).
+// Fallback for standalone/dev use where no parent ever sends INIT (proceeds with whatever the
+// URL query string provided).
 setTimeout(() => handleInit(null), 1500);

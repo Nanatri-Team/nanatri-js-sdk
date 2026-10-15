@@ -23,8 +23,6 @@ export interface InitMessage extends BridgeMessage {
   label: string;
   merchantSlug: string;
   itemId: string;
-  apiBaseUrl: string;
-  dashboardUrl: string;
   // Product display info for the form's success screen, sourced from the merchant's own
   // page rather than fetched — the item's backend snapshot isn't guaranteed to exist yet
   // (import/enrichment is async on the new-user OTP path).
@@ -54,19 +52,9 @@ export interface ButtonClickedMessage extends BridgeMessage {
   type: "BUTTON_CLICKED";
 }
 
-export interface AuthUser {
-  id: string;
-  phoneNumber?: string;
-  displayName?: string;
-  accountType: string;
-}
-
 export interface UserSignedInMessage extends BridgeMessage {
   type: "USER_SIGNED_IN";
-  accessToken: string;
-  expiresAt: string;
-  user: AuthUser;
-  requiresProfileCompletion: boolean;
+  userId: string;
 }
 
 export interface ProductAddedMessage extends BridgeMessage {
@@ -105,10 +93,7 @@ export type InboundMessage =
 // ── Custom-event detail shapes ──────────────────────────────────────────────
 
 export interface NanatriButtonSignedInDetail {
-  accessToken: string;
-  expiresAt: string;
-  user: AuthUser;
-  requiresProfileCompletion: boolean;
+  userId: string;
 }
 
 export interface NanatriButtonAddedDetail {

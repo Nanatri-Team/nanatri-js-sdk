@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self'; style-src 'self';" />
+        content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src __AUTH_ORIGIN__;" />
   <title>Nanatri Heart Button</title>
   <link rel="stylesheet" href="/frames/heart-button/style.css" />
 </head>
@@ -18,6 +18,8 @@
 
   <script src="/frames/shared/locales/en.js"></script>
   <script src="/frames/shared/locales/ka.js"></script>
+  <script src="/frames/shared/config.js"></script>
+  <script src="/frames/shared/auth.js"></script>
   <script src="/frames/heart-button/app.js"></script>
 </body>
 </html>

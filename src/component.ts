@@ -1,5 +1,4 @@
 import { ALLOWED_ORIGIN, sendMessage } from "./bridge";
-import { API_BASE_URL, DASHBOARD_URL } from "./config";
 import { createModal, openModal, closeModal, ModalElements } from "./modal";
 import type {
   BridgeMessage,
@@ -54,7 +53,13 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
     style.textContent = `:host { display: inline-block; line-height: 0; }`;
 
     this.buttonIframe = document.createElement("iframe");
-    this.buttonIframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
+    // The click happens in this frame, so it is the one that opens the sign-in popup
+    // (allow-popups) or, in redirect mode, sends the shop's tab to the dashboard
+    // (allow-top-navigation-by-user-activation).
+    this.buttonIframe.setAttribute(
+      "sandbox",
+      "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+    );
     this.buttonIframe.setAttribute("scrolling", "no");
     this.buttonIframe.style.cssText = "border:none;display:block;overflow:hidden;";
 
@@ -130,9 +135,12 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
 
   private updateIframeSrc(): void {
     const params = new URLSearchParams({
-      lang:      this.attr("lang", "en"),
-      color:     this.attr("color", "#5956E9"),
-      textColor: this.attr("text-color", "#ffffff"),
+      lang:         this.attr("lang", "en"),
+      color:        this.attr("color", "#5956E9"),
+      textColor:    this.attr("text-color", "#ffffff"),
+      // For redirect mode, which starts in this frame.
+      merchantSlug: this.attr("merchant-id"),
+      itemId:       this.attr("item-id"),
     });
     if (this.getAttribute("label")) params.set("label", this.attr("label"));
     this.buttonIframe.src = `${this.buttonFrameSrc}?${params}`;
@@ -176,10 +184,7 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
 
       case "USER_SIGNED_IN": {
         const detail: NanatriButtonSignedInDetail = {
-          accessToken:               msg.accessToken as string,
-          expiresAt:                 msg.expiresAt as string,
-          user:                      msg.user as NanatriButtonSignedInDetail["user"],
-          requiresProfileCompletion: (msg.requiresProfileCompletion as boolean) ?? false,
+          userId: msg.userId as string,
         };
         // The form shows an in-modal confirmation screen instead of us navigating
         // away — stay on the merchant page and leave the modal open.
@@ -233,8 +238,6 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
       lang:         this.attr("lang", "en"),
       merchantSlug: this.attr("merchant-id"),
       itemId:       this.attr("item-id"),
-      apiBaseUrl:   API_BASE_URL,
-      dashboardUrl: DASHBOARD_URL,
       itemTitle:    this.attr("item-title"),
       itemImage:    this.attr("item-image"),
       itemPrice:    this.attr("item-price"),
@@ -242,7 +245,7 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
     });
     const formSrc = `${FORM_FRAME_SRC}?${params}`;
 
-    this.modalElements = createModal(formSrc, "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox");
+    this.modalElements = createModal(formSrc, "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation");
 
     openModal(this.modalElements, () => this.closePaymentModal());
 
@@ -261,8 +264,6 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
             label:        this.attr("label", ""),
             merchantSlug: this.attr("merchant-id"),
             itemId:       this.attr("item-id"),
-            apiBaseUrl:   API_BASE_URL,
-            dashboardUrl: DASHBOARD_URL,
             itemTitle:    this.attr("item-title"),
             itemImage:    this.attr("item-image"),
             itemPrice:    this.attr("item-price"),
