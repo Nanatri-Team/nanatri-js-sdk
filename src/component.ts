@@ -1,5 +1,6 @@
 import { ALLOWED_ORIGIN, sendMessage } from "./bridge";
 import { createModal, openModal, closeModal, ModalElements } from "./modal";
+import { FloatingTooltip } from "./tooltip";
 import type {
   BridgeMessage,
   NanatriButtonSignedInDetail,
@@ -28,53 +29,11 @@ const OBSERVED_ATTRIBUTES = [
 // postMessage bridge, INIT/loading/added state. Variants (the labeled button vs. the
 // icon-only heart button) differ only in which small iframe renders the clickable control
 // itself and its default size; each subclass just points at its own frame.
-// Shown under the labeled button on hover and keyboard focus.
+// Shown under the labeled button on hover and keyboard focus (see FloatingTooltip).
 const TOOLTIP_TEXT: Record<string, string> = {
   en: "Add to NANATRI and start crowdfunding",
   ka: "დაამატე NANATRI-ში და დაიწყე თანხის შეგროვება",
 };
-
-// The tooltip lives in the shop's page, in this element's shadow root, not in the button frame:
-// the frame is exactly the button's size, so anything drawn inside it would be clipped. Hovering
-// the frame still counts as hovering this element.
-const HOST_STYLES = `
-  :host { display: inline-block; line-height: 0; position: relative; }
-  .tooltip {
-    position: absolute;
-    top: calc(100% + 10px);
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2147483000;
-    width: max-content;
-    max-width: 200px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    background: #1F1F2B;
-    color: #ffffff;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Georgian", Arial, sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.4;
-    text-align: center;
-    white-space: normal;
-    pointer-events: none;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.15s ease, visibility 0.15s ease;
-  }
-  .tooltip::before {
-    content: "";
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-bottom-color: #1F1F2B;
-  }
-  .tooltip[hidden] { display: none; }
-  :host(:hover) .tooltip,
-  :host(:focus-within) .tooltip { opacity: 1; visibility: visible; }
-`;
 
 abstract class NanatriBaseButtonElement extends HTMLElement {
   static get observedAttributes(): readonly string[] {
@@ -89,7 +48,7 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
 
   private readonly shadow: ShadowRoot;
   private readonly buttonIframe: HTMLIFrameElement;
-  private readonly tooltip: HTMLDivElement;
+  private tooltip: FloatingTooltip | null = null;
   private modalElements: ModalElements | null = null;
   private isModalOpen = false;
   private messageListener: ((event: MessageEvent) => void) | null = null;
@@ -100,7 +59,7 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
     this.shadow = this.attachShadow({ mode: "open" });
 
     const style = document.createElement("style");
-    style.textContent = HOST_STYLES;
+    style.textContent = `:host { display: inline-block; line-height: 0; }`;
 
     this.buttonIframe = document.createElement("iframe");
     // The click happens in this frame, so it is the one that opens the sign-in popup
@@ -113,16 +72,24 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
     this.buttonIframe.setAttribute("scrolling", "no");
     this.buttonIframe.style.cssText = "border:none;display:block;overflow:hidden;";
 
-    this.tooltip = document.createElement("div");
-    this.tooltip.className = "tooltip";
-    this.tooltip.id = "nanatri-tooltip";
-    this.tooltip.setAttribute("role", "tooltip");
-    this.tooltip.hidden = true;
-    this.buttonIframe.setAttribute("aria-describedby", "nanatri-tooltip");
-
     this.shadow.appendChild(style);
     this.shadow.appendChild(this.buttonIframe);
-    this.shadow.appendChild(this.tooltip);
+
+    // Hovering the button frame counts as hovering this element; focus comes from Tab.
+    this.addEventListener("mouseenter", () => this.showTooltipNow());
+    this.addEventListener("mouseleave", () => this.tooltip?.hide());
+    this.addEventListener("focusin", () => this.showTooltipNow());
+    this.addEventListener("focusout", () => this.tooltip?.hide());
+  }
+
+  private tooltipText(): string {
+    return TOOLTIP_TEXT[this.attr("lang", "en")] ?? TOOLTIP_TEXT.en;
+  }
+
+  private showTooltipNow(): void {
+    if (!this.showTooltip || !this.verified || this.isModalOpen) return;
+    this.tooltip ??= new FloatingTooltip();
+    this.tooltip.show(this, this.tooltipText());
   }
 
   connectedCallback(): void {
@@ -147,6 +114,8 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
 
   disconnectedCallback(): void {
     this.removeMessageListener();
+    this.tooltip?.destroy();
+    this.tooltip = null;
     if (this.isModalOpen && this.modalElements) {
       closeModal(this.modalElements);
     }
@@ -192,9 +161,8 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
   }
 
   private updateIframeSrc(): void {
-    // Subclass fields are set after the base constructor runs, so the tooltip is decided here.
-    this.tooltip.hidden = !this.showTooltip;
-    this.tooltip.textContent = TOOLTIP_TEXT[this.attr("lang", "en")] ?? TOOLTIP_TEXT.en;
+    // The tooltip is drawn outside this element, so screen readers get its text from here.
+    if (this.showTooltip) this.buttonIframe.setAttribute("aria-description", this.tooltipText());
 
     const params = new URLSearchParams({
       lang:         this.attr("lang", "en"),
@@ -293,6 +261,7 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
   }
 
   private openModal(): void {
+    this.tooltip?.hide();
     if (this.isModalOpen) return;
 
     const params = new URLSearchParams({

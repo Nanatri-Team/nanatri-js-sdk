@@ -27,8 +27,8 @@ body {
   transition: transform 0.1s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
+/* No box-shadow: the frame is exactly the button's size, so a shadow would be clipped. */
 #heart-btn:hover:not(:disabled) {
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
   border-color: #313235;
 }
 
