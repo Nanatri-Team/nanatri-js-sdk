@@ -3,19 +3,22 @@
 
   var params    = new URLSearchParams(location.search);
   var lang      = params.get("lang")      || "en";
-  var color     = params.get("color")     || "#5956E9";
-  var textColor = params.get("textColor") || "#ffffff";
+  var color     = params.get("color");
+  var textColor = params.get("textColor");
 
   var btn     = document.getElementById("pay-btn");
   var labelEl = document.getElementById("label-text");
 
   // ── Resolve label from locale or explicit param ────────────────────────────
 
+  // The visible text is the brand name in every language; the accessible name says what it does.
   function getLabel() {
-    var explicit = params.get("label");
-    if (explicit) return explicit;
+    return params.get("label") || "Nanatri";
+  }
+
+  function getAccessibleLabel() {
     var t = window.__i18n && window.__i18n[lang];
-    return t ? t.addToWishlist : "Nanatri";
+    return params.get("label") || (t && t.addToWishlist) || "Nanatri";
   }
 
   function getProcessingText() {
@@ -25,11 +28,15 @@
 
   // ── Apply styles ───────────────────────────────────────────────────────────
 
-  btn.style.backgroundColor = color;
-  btn.style.color            = textColor;
+  // Optional overrides from the shop; without them the stylesheet's Nanatri design applies.
+  if (color) {
+    btn.style.backgroundColor = color;
+    btn.style.borderColor     = color;
+  }
+  if (textColor) btn.style.color = textColor;
 
   var label = getLabel();
-  btn.setAttribute("aria-label", label);
+  btn.setAttribute("aria-label", getAccessibleLabel());
   labelEl.textContent = label;
 
   // ── Events ─────────────────────────────────────────────────────────────────

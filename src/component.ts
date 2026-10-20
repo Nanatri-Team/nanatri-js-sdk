@@ -28,6 +28,54 @@ const OBSERVED_ATTRIBUTES = [
 // postMessage bridge, INIT/loading/added state. Variants (the labeled button vs. the
 // icon-only heart button) differ only in which small iframe renders the clickable control
 // itself and its default size; each subclass just points at its own frame.
+// Shown under the labeled button on hover and keyboard focus.
+const TOOLTIP_TEXT: Record<string, string> = {
+  en: "Add to NANATRI and start crowdfunding",
+  ka: "დაამატე NANATRI-ში და დაიწყე თანხის შეგროვება",
+};
+
+// The tooltip lives in the shop's page, in this element's shadow root, not in the button frame:
+// the frame is exactly the button's size, so anything drawn inside it would be clipped. Hovering
+// the frame still counts as hovering this element.
+const HOST_STYLES = `
+  :host { display: inline-block; line-height: 0; position: relative; }
+  .tooltip {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2147483000;
+    width: max-content;
+    max-width: 200px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #1F1F2B;
+    color: #ffffff;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Georgian", Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: center;
+    white-space: normal;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+  }
+  .tooltip::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-bottom-color: #1F1F2B;
+  }
+  .tooltip[hidden] { display: none; }
+  :host(:hover) .tooltip,
+  :host(:focus-within) .tooltip { opacity: 1; visibility: visible; }
+`;
+
 abstract class NanatriBaseButtonElement extends HTMLElement {
   static get observedAttributes(): readonly string[] {
     return OBSERVED_ATTRIBUTES;
@@ -37,9 +85,11 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
   protected abstract readonly defaultWidth: string;
   protected abstract readonly defaultHeight: string;
   protected abstract readonly frameTitle: string;
+  protected readonly showTooltip: boolean = false;
 
   private readonly shadow: ShadowRoot;
   private readonly buttonIframe: HTMLIFrameElement;
+  private readonly tooltip: HTMLDivElement;
   private modalElements: ModalElements | null = null;
   private isModalOpen = false;
   private messageListener: ((event: MessageEvent) => void) | null = null;
@@ -50,7 +100,7 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
     this.shadow = this.attachShadow({ mode: "open" });
 
     const style = document.createElement("style");
-    style.textContent = `:host { display: inline-block; line-height: 0; }`;
+    style.textContent = HOST_STYLES;
 
     this.buttonIframe = document.createElement("iframe");
     // The click happens in this frame, so it is the one that opens the sign-in popup
@@ -63,8 +113,16 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
     this.buttonIframe.setAttribute("scrolling", "no");
     this.buttonIframe.style.cssText = "border:none;display:block;overflow:hidden;";
 
+    this.tooltip = document.createElement("div");
+    this.tooltip.className = "tooltip";
+    this.tooltip.id = "nanatri-tooltip";
+    this.tooltip.setAttribute("role", "tooltip");
+    this.tooltip.hidden = true;
+    this.buttonIframe.setAttribute("aria-describedby", "nanatri-tooltip");
+
     this.shadow.appendChild(style);
     this.shadow.appendChild(this.buttonIframe);
+    this.shadow.appendChild(this.tooltip);
   }
 
   connectedCallback(): void {
@@ -134,14 +192,19 @@ abstract class NanatriBaseButtonElement extends HTMLElement {
   }
 
   private updateIframeSrc(): void {
+    // Subclass fields are set after the base constructor runs, so the tooltip is decided here.
+    this.tooltip.hidden = !this.showTooltip;
+    this.tooltip.textContent = TOOLTIP_TEXT[this.attr("lang", "en")] ?? TOOLTIP_TEXT.en;
+
     const params = new URLSearchParams({
       lang:         this.attr("lang", "en"),
-      color:        this.attr("color", "#5956E9"),
-      textColor:    this.attr("text-color", "#ffffff"),
       // For redirect mode, which starts in this frame.
       merchantSlug: this.attr("merchant-id"),
       itemId:       this.attr("item-id"),
     });
+    // Colours only when the shop sets them; otherwise the frame keeps the Nanatri design.
+    if (this.getAttribute("color")) params.set("color", this.attr("color"));
+    if (this.getAttribute("text-color")) params.set("textColor", this.attr("text-color"));
     if (this.getAttribute("label")) params.set("label", this.attr("label"));
     this.buttonIframe.src = `${this.buttonFrameSrc}?${params}`;
   }
@@ -321,6 +384,7 @@ export class NanatriButtonElement extends NanatriBaseButtonElement {
   protected readonly defaultWidth = "200px";
   protected readonly defaultHeight = "48px";
   protected readonly frameTitle = "Nanatri Button";
+  protected readonly showTooltip = true;
 }
 
 // Icon-only "add to wishlist" heart, for placements (product cards, image overlays) where a
@@ -328,7 +392,7 @@ export class NanatriButtonElement extends NanatriBaseButtonElement {
 // NanatriBaseButtonElement — just a different clickable control.
 export class NanatriHeartButtonElement extends NanatriBaseButtonElement {
   protected readonly buttonFrameSrc = `${ALLOWED_ORIGIN}/frames/heart-button/index.html`;
-  protected readonly defaultWidth = "40px";
-  protected readonly defaultHeight = "40px";
+  protected readonly defaultWidth = "44px";
+  protected readonly defaultHeight = "44px";
   protected readonly frameTitle = "Nanatri Wishlist Heart Button";
 }

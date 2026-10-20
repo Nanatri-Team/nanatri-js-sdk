@@ -15,20 +15,23 @@ body {
 
 #pay-btn {
   flex: 1;
-  border: none;
-  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: #4343B2;
+  border: 1.5px solid #8181DA; /* indigo-400 */
+  border-radius: 999px;
   cursor: pointer;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto,
                "Noto Sans Georgian", Arial, sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   transition: background 0.15s ease, transform 0.1s ease,
               box-shadow 0.15s ease, opacity 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 10px;
   white-space: nowrap;
   overflow: hidden;
   outline-offset: 3px;
@@ -36,13 +39,11 @@ body {
 }
 
 #pay-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(89, 86, 233, 0.35);
-  opacity: 0.92;
+  background: #F5F4FF;
+  box-shadow: 0 2px 10px rgba(67, 67, 178, 0.15);
 }
 
 #pay-btn:active:not(:disabled) {
-  transform: translateY(0);
   box-shadow: none;
 }
 
@@ -53,11 +54,10 @@ body {
 
 /* Brand logo inside button */
 .btn-logo {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   object-fit: contain;
   flex-shrink: 0;
-  border-radius: 3px;
   transition: transform 0.2s ease;
 }
 #pay-btn:hover:not(:disabled) .btn-logo {
